@@ -1,0 +1,30 @@
+{
+  "source_file": "PO-SSVF (7011)-1106979164.pdf",
+  "file_hash": "d10b1a783c4e5a95e76d9ca71a32dd90",
+  "process_time": "2026-03-24T12:07:50.089014",
+  "header": {
+    "customer_name": "Schneider Electric Asia Pte Ltd",
+    "po_number": "1106979164",
+    "po_date": "2025-12-23",
+    "currency": "CNY",
+    "total_amount": 19671.9
+  },
+  "items": [
+    {
+      "line_no": "00010",
+      "material": "363112114",
+      "description": "4L-TG130-LFHAL-15up by board",
+      "qty": 3450,
+      "unit_price": 5.702,
+      "amount": 19671.9
+    }
+  ],
+  "confidence": 0.5,
+  "warnings": [
+    "PO number appears in multiple locations (1106979164 and 1136623252/000010)",
+    "Unit price calculated from gross price per 1000 pieces",
+    "Customer PO No field shows different number than main PO Number"
+  ],
+  "raw_text_length": 2044,
+  "process_duration_ms": 54418
+}

@@ -1,0 +1,10 @@
+# PO Parser 测试依赖
+
+# PDF 解析
+opendataloader-pdf>=2.0.0
+
+# Ollama API 调用
+openai>=1.0.0
+
+# 可选：Hybrid 模式（扫描件、复杂表格）
+# opendataloader-pdf[hybrid]>=2.0.0

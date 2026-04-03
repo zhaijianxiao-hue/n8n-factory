@@ -1,0 +1,181 @@
+{
+  "name": "老 ERP 数据同步飞书多维表格",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -672,
+        -80
+      ],
+      "id": "26118397-0c41-4ede-a324-65d9b465fb30",
+      "name": "手动触发"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "09eb3a3b-171c-4ab1-81a8-cb02b9314416",
+              "name": "startDate",
+              "value": "={{ $now.minus({ days: 1 }).toFormat(\"yyyy/MM/dd\") }}",
+              "type": "string"
+            },
+            {
+              "id": "51383487-03c8-4e4a-a0e0-8cdde60aa787",
+              "name": "endDate",
+              "value": "={{ $now.minus({ days: 1 }).toFormat(\"yyyy/MM/dd\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -464,
+        -80
+      ],
+      "id": "1895cc8e-42c3-41f1-861f-23ea47d75917",
+      "name": "设置日期参数"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DECLARE @StartDate varchar(20) = '{{ $json.startDate }}'\nDECLARE @EndDate varchar(20) = '{{ $json.endDate }}'\n\nDECLARE @p13 VARCHAR(8000) = '';\n\nEXEC Sp_Qaa_NewMrbCount1_new1 '工序', '面积', @StartDate, @EndDate, '', '', '', '', '', '', '二厂', '报废', @p13 OUTPUT, '%', '', 'unknown';\n\nSELECT @p13 AS Result;"
+      },
+      "type": "n8n-nodes-base.microsoftSql",
+      "typeVersion": 1.1,
+      "position": [
+        -256,
+        -80
+      ],
+      "id": "5b40ee84-0844-49f8-8190-77017ea234e8",
+      "name": "获取老 ERP 数据",
+      "credentials": {
+        "microsoftSql": {
+          "id": "b6fmBvUg9kek5amd",
+          "name": "Microsoft SQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dataDate = $now.minus({ days: 1 }).toFormat('yyyy/MM/dd');\n\nconst inputItems = $input.all();\nconst rows = inputItems.map((item) => item.json);\n\nconst records = rows.map((row) => ({\n  fields: {\n    ProcName: String(row.ProcName ?? '').trim(),\n    ProcOrd: String(row.ProcOrd ?? ''),\n    ProcNo: String(row.ProcNo ?? ''),\n    EliArea: String(row.EliArea ?? ''),\n    EliPNL: String(row.EliPNL ?? ''),\n    ScrapArea: String(row.ScrapArea ?? ''),\n    ScrapPNL: String(row.ScrapPNL ?? ''),\n    ProdArea: String(row.ProdArea ?? ''),\n    ProdPNL: String(row.ProdPNL ?? ''),\n    BugNo: String(row.BugNo ?? '').trim(),\n    BugArea: String(row.BugArea ?? ''),\n    BugName: String(row.BugName ?? '').trim(),\n    Target: String(row.Target ?? ''),\n    zdate: dataDate\n  }\n}));\n\nreturn [{\n  json: {\n    records: records\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        -80
+      ],
+      "id": "523f53a0-f7a9-4cb8-a066-840ec84374d1",
+      "name": "转换数据格式"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"app_id\": \"YOUR_FEISHU_APP_ID\",\n  \"app_secret\": \"YOUR_FEISHU_APP_SECRET\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        160,
+        -80
+      ],
+      "id": "9c259d3f-cb16-427f-b369-2153eebe0a99",
+      "name": "获取飞书 Token"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.feishu.cn/open-apis/bitable/v1/apps/YOUR_BITABLE_APP_TOKEN/tables/YOUR_BITABLE_TABLE_ID/records/batch_create",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.tenant_access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($node[\"转换数据格式\"].json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        368,
+        -80
+      ],
+      "id": "62b98715-0df4-4ddf-8917-fc0f7672584a",
+      "name": "写入飞书多维表格"
+    }
+  ],
+  "connections": {
+    "手动触发": {
+      "main": [
+        [
+          {
+            "node": "设置日期参数",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "设置日期参数": {
+      "main": [
+        [
+          {
+            "node": "获取老 ERP 数据",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "获取老 ERP 数据": {
+      "main": [
+        [
+          {
+            "node": "转换数据格式",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "转换数据格式": {
+      "main": [
+        [
+          {
+            "node": "获取飞书 Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "获取飞书 Token": {
+      "main": [
+        [
+          {
+            "node": "写入飞书多维表格",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

@@ -1,0 +1,34 @@
+{
+  "profile_name": "evytra",
+  "markers": [
+    "EVYTRA GmbH",
+    "Your supplier ID:",
+    "OrderConfirmation@evytra.com"
+  ],
+  "number_format": {
+    "decimal_separator": ",",
+    "thousands_separator": "."
+  },
+  "item_rules": {
+    "ignore_tokens": ["TA"],
+    "customer_material_source": "description_first_token",
+    "material_description_source": "article"
+  },
+  "header_rules": {
+    "notes_to_header": [
+      "blanket_order_note",
+      "production_note",
+      "packaging_note"
+    ],
+    "delivery_tolerance_fields": [
+      "delivery_tolerance_positive_pct",
+      "delivery_tolerance_negative_pct",
+      "delivery_tolerance_raw"
+    ]
+  },
+  "review_triggers": [
+    "suspicious_item_amount",
+    "item_total_mismatch",
+    "missing_required_fields"
+  ]
+}

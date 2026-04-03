@@ -1,0 +1,23 @@
+{
+  "name": "n8n-workflow-factory",
+  "version": "0.1.0",
+  "description": "n8n 工作流开发、管理、部署平台",
+  "private": true,
+  "scripts": {
+    "lint": "eslint .",
+    "test": "jest",
+    "validate": "node scripts/validate-workflows.js",
+    "deploy": "node scripts/deploy.js"
+  },
+  "keywords": [
+    "n8n",
+    "workflow",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

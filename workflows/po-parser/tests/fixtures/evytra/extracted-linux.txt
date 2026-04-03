@@ -1,0 +1,147 @@
+--- Page 1 ---
+EVYTRA GmbH
+23.03.2026
+Your supplier ID:
+704000
+Janine Kirchhof
+Our contact:
+Janine.Kirchhof@evytra.com
+E-Mail:
+Fax no.:
++49 212 / 383923-12
+Phone-no.:
+Date:
+Page:
+Page 1 of 2
+ EVYTRA GmbH, Sturmbühlstr. 180 - 184, 78054 VS-Schwenningen
+Tianjin Printronics Circuit Corp.
+Mrs Tina Zhang
+No. 53 Hanghai Rd, Airport Economic Area
+300308 Tianjin / China
+VR CHINA
+@@ELO|Bestellung|2260892|
+Order 2260892
+Dear Sirs, 
+Hereby we order the following item(s) according to the agreed delivery terms.
+Please send your order confirmation, including prices and delivery date, within the next two business days to: 
+ OrderConfirmation @ evytra . com
+Item
+Quantity Description
+Article
+Price
+10
+735098
+1.000
+4001391504     TA
+pcs
+>>> Blanket order quantity: 13.000 pcs. 
+./. order no. 2250134                3.000 pcs
+./. order no. 2251915                3.000 pcs
+./. order no. 2253449                3.000 pcs.
+./. this order                               4.000 pcs.
+rest quantity:                                    0 pcs.<<<
+>>> Deliver: + / - 0 % <<<                                                 
+>>> Production lot: 4.000 pcs. -> It is very important that Tianjin
+produce the complete quantity. Please store the boards in your
+stock. It is possible that our customer will change the delivery date
+for item 20 + 30 + 40. To react in a short term the boards must be
+stocked. Please confirm. <<<
+>>> Please pack the boards that we can deliver 4x 1.000 pcs. 
+without having to repack, thanks. <<<
+Order:
+30601875   Pos. 10.000
+Delivery date:
+01.05.2026
+price / unit:
+ EUR
+450,00
+for 100 pcs: 45,00 EUR
+20
+735098
+1.000
+4001391504     TA
+pcs
+Order:
+30601876   Pos. 10.000
+Delivery date:
+29.05.2026
+price / unit:
+ EUR
+450,00
+for 100 pcs: 45,00 EUR
+EVYTRA GmbH
+Sturmbühlstr. 180 - 184
+D-78054 VS - Schwenningen
+Phone-no.:
++49 7720 3902 0
+Fax no.:
++49 7720 3902 70
+E-Mail:
+info@evytra.com
+Internet:
+www.evytra.com
+HRB 600728 Registergericht Freiburg i. 
+Br.
+CEO Pierre Lohrber and Stephan 
+Menzel
+
+--- Page 2 ---
+Order 2260892  of  23.03.2026  to  Tianjin Printronics Circuit Corp. 
+2
+Item
+Quantity Description
+Article
+Price
+30
+735098
+1.000
+4001391504     TA
+pcs
+Order:
+30601877   Pos. 10.000
+Delivery date:
+26.06.2026
+ EUR
+45.000,00
+45,00 EUR
+price / unit:
+45,00 EUR
+40
+735098
+1.000
+4001391504     TA
+pcs
+Order:
+30601878
+Delivery date:
+03.07.2026
+price / unit:
+ EUR
+450,00
+for 100 pcs: 45,00 EUR
+Order amount
+ EUR
+46.350,00
+DAP Schwenningen
+Incoterms:
+90 days net
+Terms of payment:
+Airfreight
+Mode of shipment:
+Best regards
+EVYTRA GmbH
+EVYTRA GmbH
+Sturmbühlstr. 180 - 184
+D-78054 VS - Schwenningen
+Phone-no.:
++49 7720 3902 0
+Fax no.:
++49 7720 3902 70
+E-Mail:
+info@evytra.com
+Internet:
+www.evytra.com
+HRB 600728 Registergericht Freiburg i. 
+Br.
+CEO Pierre Lohrber and Stephan 
+Menzel

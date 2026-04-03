@@ -1,0 +1,230 @@
+{
+  "name": "PO-Parser - 采购订单PDF解析",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "minutes", "minutesInterval": 1}]
+        }
+      },
+      "id": "trigger",
+      "name": "定时触发",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.142.1.135:8765/scan",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"directory\": \"/mnt/smb/po_pdfs/incoming\", \"pattern\": \"*.pdf\"}"
+      },
+      "id": "scan",
+      "name": "扫描目录",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [{
+            "leftValue": "={{ $json.count }}",
+            "rightValue": 0,
+            "operator": {"type": "number", "operation": "gt"}
+          }]
+        }
+      },
+      "id": "has-files",
+      "name": "有文件?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "files",
+        "options": {}
+      },
+      "id": "split",
+      "name": "拆分文件",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [800, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.142.1.135:8765/parse",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ pdf_path: $json.files, output_dir: '/mnt/smb/po_pdfs/output' }) }}"
+      },
+      "id": "parse",
+      "name": "解析PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": {"type": "string", "operation": "equals"}
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-success",
+      "name": "成功?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "review",
+              "operator": {"type": "string", "operation": "equals"}
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-status",
+      "name": "需要复核?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.142.1.135:8765/move",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source: '/mnt/smb/po_pdfs/incoming/' + $node['解析PDF'].json.source_file, destination: '/mnt/smb/po_pdfs/done/' + $node['解析PDF'].json.source_file }) }}"
+      },
+      "id": "move-done",
+      "name": "移到done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.142.1.135:8765/move",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source: '/mnt/smb/po_pdfs/incoming/' + $node['解析PDF'].json.source_file, destination: '/mnt/smb/po_pdfs/error/' + $node['解析PDF'].json.source_file }) }}"
+      },
+      "id": "move-error",
+      "name": "移到error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.142.1.135:8765/move",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source: '/mnt/smb/po_pdfs/incoming/' + $node['解析PDF'].json.source_file, destination: '/mnt/smb/po_pdfs/review/' + $node['解析PDF'].json.source_file }) }}"
+      },
+      "id": "move-review",
+      "name": "移到review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "status", "name": "status", "value": "={{ $(\"解析PDF\").item.json.status }}", "type": "string"},
+            {"id": "source_file", "name": "source_file", "value": "={{ $(\"解析PDF\").item.json.source_file }}", "type": "string"},
+            {"id": "po_number", "name": "po_number", "value": "={{ $(\"解析PDF\").item.json.header.po_number }}", "type": "string"},
+            {"id": "customer_name", "name": "customer_name", "value": "={{ $(\"解析PDF\").item.json.header.customer_name }}", "type": "string"},
+            {"id": "po_date", "name": "po_date", "value": "={{ $(\"解析PDF\").item.json.header.po_date }}", "type": "string"},
+            {"id": "currency", "name": "currency", "value": "={{ $(\"解析PDF\").item.json.header.currency }}", "type": "string"},
+            {"id": "total_amount", "name": "total_amount", "value": "={{ $(\"解析PDF\").item.json.header.total_amount }}", "type": "number"},
+            {"id": "items", "name": "items", "value": "={{ $(\"解析PDF\").item.json.items }}", "type": "object"},
+            {"id": "confidence", "name": "confidence", "value": "={{ $(\"解析PDF\").item.json.confidence }}", "type": "number"},
+            {"id": "warnings", "name": "warnings", "value": "={{ $(\"解析PDF\").item.json.warnings }}", "type": "array"},
+            {"id": "output_file", "name": "output_file", "value": "={{ $(\"解析PDF\").item.json.output_file }}", "type": "string"}
+          ]
+        }
+      },
+      "id": "output-success",
+      "name": "输出结果-成功",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1600, 100]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "status", "name": "status", "value": "review", "type": "string"},
+            {"id": "source_file", "name": "source_file", "value": "={{ $node['解析PDF'].json.source_file }}", "type": "string"},
+            {"id": "po_number", "name": "po_number", "value": "={{ $node['解析PDF'].json.header.po_number }}", "type": "string"},
+            {"id": "customer_name", "name": "customer_name", "value": "={{ $node['解析PDF'].json.header.customer_name }}", "type": "string"},
+            {"id": "warnings", "name": "warnings", "value": "={{ $node['解析PDF'].json.warnings }}", "type": "array"},
+            {"id": "output_file", "name": "output_file", "value": "={{ $node['解析PDF'].json.output_file }}", "type": "string"}
+          ]
+        }
+      },
+      "id": "output-review",
+      "name": "输出结果-复核",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1600, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "status", "name": "status", "value": "error", "type": "string"},
+            {"id": "source_file", "name": "source_file", "value": "={{ $(\"解析PDF\").item.json.source_file }}", "type": "string"},
+            {"id": "error_reason", "name": "error_reason", "value": "={{ $(\"解析PDF\").item.json.warnings }}", "type": "array"}
+          ]
+        }
+      },
+      "id": "output-error",
+      "name": "输出结果-失败",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1600, 300]
+    }
+  ],
+  "connections": {
+    "定时触发": {"main": [[{"node": "扫描目录", "type": "main", "index": 0}]]},
+    "扫描目录": {"main": [[{"node": "有文件?", "type": "main", "index": 0}]]},
+    "有文件?": {"main": [[{"node": "拆分文件", "type": "main", "index": 0}], []]},
+    "拆分文件": {"main": [[{"node": "解析PDF", "type": "main", "index": 0}]]},
+    "解析PDF": {"main": [[{"node": "成功?", "type": "main", "index": 0}]]},
+    "成功?": {"main": [[{"node": "移到done", "type": "main", "index": 0}], [{"node": "需要复核?", "type": "main", "index": 0}]]},
+    "需要复核?": {"main": [[{"node": "移到review", "type": "main", "index": 0}], [{"node": "移到error", "type": "main", "index": 0}]]},
+    "移到done": {"main": [[{"node": "输出结果-成功", "type": "main", "index": 0}]]},
+    "移到review": {"main": [[{"node": "输出结果-复核", "type": "main", "index": 0}]]},
+    "移到error": {"main": [[{"node": "输出结果-失败", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"}
+}

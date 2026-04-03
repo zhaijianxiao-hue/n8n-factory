@@ -1,0 +1,164 @@
+{
+  "name": "PO-Parser - 采购订单PDF解析 v1",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "node-1",
+      "name": "定时触发",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "command": "ls /mnt/smb/po_pdfs/incoming/*.pdf 2>/dev/null | head -10 || echo 'NO_FILES'"
+      },
+      "id": "node-2",
+      "name": "扫描PDF文件",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.stdout }}",
+              "rightValue": "NO_FILES",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-3",
+      "name": "有文件?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 解析文件列表\nconst output = $input.first().json.stdout;\nconst files = output.trim().split('\\n').filter(f => f.endsWith('.pdf'));\n\nreturn files.map(f => ({\n  json: {\n    filePath: f.trim(),\n    fileName: f.trim().split('/').pop()\n  }\n}));"
+      },
+      "id": "node-4",
+      "name": "解析文件列表",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 200]
+    },
+    {
+      "parameters": {
+        "command": "=python3 /opt/po-parser/process_po.py \"{{ $json.filePath }}\""
+      },
+      "id": "node-5",
+      "name": "处理PDF",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1040, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = JSON.parse($input.first().json.stdout);\nreturn [{ json: result }];"
+      },
+      "id": "node-6",
+      "name": "解析结果",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-7",
+      "name": "成功?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 200]
+    },
+    {
+      "parameters": {
+        "command": "=mv \"{{ $('解析文件列表').item.json.filePath }}\" /mnt/smb/po_pdfs/done/"
+      },
+      "id": "node-8",
+      "name": "归档到done",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1640, 100]
+    },
+    {
+      "parameters": {
+        "command": "=mv \"{{ $('解析文件列表').item.json.filePath }}\" /mnt/smb/po_pdfs/error/"
+      },
+      "id": "node-9",
+      "name": "归档到error",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1640, 300]
+    }
+  ],
+  "connections": {
+    "定时触发": {
+      "main": [[{"node": "扫描PDF文件", "type": "main", "index": 0}]]
+    },
+    "扫描PDF文件": {
+      "main": [[{"node": "有文件?", "type": "main", "index": 0}]]
+    },
+    "有文件?": {
+      "main": [
+        [{"node": "解析文件列表", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "解析文件列表": {
+      "main": [[{"node": "处理PDF", "type": "main", "index": 0}]]
+    },
+    "处理PDF": {
+      "main": [[{"node": "解析结果", "type": "main", "index": 0}]]
+    },
+    "解析结果": {
+      "main": [[{"node": "成功?", "type": "main", "index": 0}]]
+    },
+    "成功?": {
+      "main": [
+        [{"node": "归档到done", "type": "main", "index": 0}],
+        [{"node": "归档到error", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

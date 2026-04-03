@@ -1,0 +1,26 @@
+{
+  "name": "old-erp-sync",
+  "version": "0.1.0",
+  "description": "老 ERP 统计数据提取并推送到飞书多维表格工作流",
+  "status": "development",
+  "trigger": "manual",
+  "input": {
+    "type": "database",
+    "source": "Microsoft SQL Server",
+    "procedure": "Sp_Qaa_NewMrbCount1_new1"
+  },
+  "output": {
+    "type": "webhook",
+    "target": "Feishu Base Workflow",
+    "mode": "test"
+  },
+  "dependencies": {
+    "n8n": ">=1.0",
+    "microsoft-sql-credential": "required",
+    "feishu-webhook": "required"
+  },
+  "tags": ["erp", "sql", "feishu", "bitable", "reporting"],
+  "owner": "IT部",
+  "created_at": "2026-04-01",
+  "updated_at": "2026-04-01"
+}

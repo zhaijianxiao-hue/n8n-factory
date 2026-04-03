@@ -1,0 +1,88 @@
+--- Page 1 ---
+_____________________________________________________
+Currency:
+CNY Yuan
+Terms of payment:
+60 days due net
+VAT Registration nº:
+M90361766A
+Incoterms:
+FCA
+Tianjin
+Your VAT Registration n°:
+91120116600552474E
+Shipping instruction:
+Int'l Quick Transport
+_________________________________________________________________________
+Item
+Material nº
+Material Description
+Qty
+Unit
+Delivery Date
+_________________________________________________________________________
+00010
+ 363112114
+4L-TG130-LFHAL-15up by board
+3,450
+Piece
+17 Apr 2026
+Goods Issue Date
+27 Mar 2026
+Customer PO No:
+1136623252 / 000010
+ 363112114
+_________________________________________________________________
+Gross Price
+       5,702.00 CNY
+per
+1,000  PCE
+        19,671.90
+CNY
+Total Amount for item
+        19,671.90
+CNY
+_________________________________________________________________
+_________________________________________________________________________
+P.O. Total Amount
+        19,671.90
+CNY
+_________________________________________________________________________
+Purchase order
+Invoicing Address
+( These references are essential to process and pay your invoice )
+Schneider Electric Asia Pte Ltd
+(Formerly known as Schneider Electric Logistics Asia Pte Ltd)
+RCB No :199608375D   GSTN  No: M9036176A
+ 50 Kallang Avenue
+339505 Singapore
+Singapore
+Delivery Address
+LEXEL FABRIKA, SIA
+Krustpils iela 35A
+LV-1073 RIGA
+LATVIA
+Schneider contact: Wei Deng
+Phone: 
+Fax:
+e-mail : wei1.deng@se.com
+23 Dec 2025
+Order to:
+Company
+Tianjin Printronics Circuit Corp
+Pilot Free Trade Zone
+No.53 Hanghai Road
+300308 TIANJIN-AIRPORT ECONOMIC AREA
+PEOPLE'S REPUBLIC OF CHINA
+The supplier admits having taken knowledge of the general condition
+purchase, or of the contract to which the present order pertains, and accepts
+them as being part of said order.
+P 1/  1
+Supplier:
+11125101
+PO Number:
+1106979164
+_____________________________________________________
+Please do not forget : 
+ - To include a packing list in one of the parcels in order to
+enable us to check the goods

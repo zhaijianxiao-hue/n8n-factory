@@ -1,0 +1,193 @@
+{
+  "name": "test006",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -672,
+        -80
+      ],
+      "id": "26118397-0c41-4ede-a324-65d9b465fb30",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "09eb3a3b-171c-4ab1-81a8-cb02b9314416",
+              "name": "startDate",
+              "value": "={{ $now.minus({ days: 1 }).toFormat(\"yyyy/MM/dd\") }}",
+              "type": "string"
+            },
+            {
+              "id": "51383487-03c8-4e4a-a0e0-8cdde60aa787",
+              "name": "endDate",
+              "value": "={{ $now.minus({ days: 1 }).toFormat(\"yyyy/MM/dd\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -464,
+        -80
+      ],
+      "id": "1895cc8e-42c3-41f1-861f-23ea47d75917",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DECLARE @StartDate varchar(20) = '{{ $json.startDate }}'\nDECLARE @EndDate varchar(20) = '{{ $json.endDate }}'\n\nDECLARE @p13 VARCHAR(8000) = '';\n\nEXEC Sp_Qaa_NewMrbCount1_new1 '工序', '面积', @StartDate, @EndDate, '', '', '', '', '', '', '二厂', '报废', @p13 OUTPUT, '%', '', 'unknown';\n\nSELECT @p13 AS Result;"
+      },
+      "type": "n8n-nodes-base.microsoftSql",
+      "typeVersion": 1.1,
+      "position": [
+        -256,
+        -80
+      ],
+      "id": "5b40ee84-0844-49f8-8190-77017ea234e8",
+      "name": "Microsoft SQL",
+      "credentials": {
+        "microsoftSql": {
+          "id": "b6fmBvUg9kek5amd",
+          "name": "Microsoft SQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"app_id\": \"YOUR_FEISHU_APP_ID\",\n  \"app_secret\": \"YOUR_FEISHU_APP_SECRET\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        160,
+        -80
+      ],
+      "id": "9c259d3f-cb16-427f-b369-2153eebe0a99",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.feishu.cn/open-apis/bitable/v1/apps/YOUR_BITABLE_APP_TOKEN/tables/YOUR_BITABLE_TABLE_ID/records/batch_create",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.tenant_access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($node[\"数据转换格式\"].json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        368,
+        -80
+      ],
+      "id": "62b98715-0df4-4ddf-8917-fc0f7672584a",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const dataDate = $now.minus({ days: 1 }).toFormat('yyyy/MM/dd');\n\nconst inputItems = $input.all();\nconst rows = inputItems.map((item) => item.json);\n\nconst records = rows.map((row) => ({\n  fields: {\n    ProcName: String(row.ProcName ?? '').trim(),\n    ProcOrd: String(row.ProcOrd ?? ''),\n    ProcNo: String(row.ProcNo ?? ''),\n    EliArea: String(row.EliArea ?? ''),\n    EliPNL: String(row.EliPNL ?? ''),\n    ScrapArea: String(row.ScrapArea ?? ''),\n    ScrapPNL: String(row.ScrapPNL ?? ''),\n    ProdArea: String(row.ProdArea ?? ''),\n    ProdPNL: String(row.ProdPNL ?? ''),\n    BugNo: String(row.BugNo ?? '').trim(),\n    BugArea: String(row.BugArea ?? ''),\n    BugName: String(row.BugName ?? '').trim(),\n    Target: String(row.Target ?? ''),\n    zdate: dataDate\n  }\n}));\n\nreturn [{\n  json: {\n    records: records\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        -80
+      ],
+      "id": "523f53a0-f7a9-4cb8-a066-840ec84374d1",
+      "name": "数据转换格式"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Microsoft SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Microsoft SQL": {
+      "main": [
+        [
+          {
+            "node": "数据转换格式",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "数据转换格式": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "50e903e7-4a0b-4c08-9fa9-b0f11f60c3db",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4f469e0ebaf2c53e7e0bc258bc97d44401c0801bd9a4ea7e0604785c3381ce2d"
+  },
+  "id": "VPL9POfTn3pYaHjM",
+  "tags": []
+}

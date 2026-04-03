@@ -1,0 +1,125 @@
+{
+  "name": "PO-Parser - 采购订单PDF解析",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "minutes", "minutesInterval": 1}]
+        }
+      },
+      "id": "trigger",
+      "name": "定时触发",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8765/scan",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"directory\": \"/mnt/smb/po_pdfs/incoming\", \"pattern\": \"*.pdf\"}"
+      },
+      "id": "scan",
+      "name": "扫描目录",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [{
+            "leftValue": "={{ $json.count }}",
+            "rightValue": 0,
+            "operator": {"type": "number", "operation": "gt"}
+          }]
+        }
+      },
+      "id": "has-files",
+      "name": "有文件?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "files",
+        "options": {}
+      },
+      "id": "split",
+      "name": "拆分文件",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [800, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8765/parse",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"pdf_path\": \"{{ $json.files }}\", \"output_dir\": \"/mnt/smb/po_pdfs/output\"}"
+      },
+      "id": "parse",
+      "name": "解析PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [{
+            "leftValue": "={{ $json.status }}",
+            "rightValue": "success",
+            "operator": {"type": "string", "operation": "equals"}
+          }]
+        }
+      },
+      "id": "check-status",
+      "name": "解析成功?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8765/move",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"source\": \"/mnt/smb/po_pdfs/incoming/{{ $json.source_file }}\", \"destination\": \"/mnt/smb/po_pdfs/done/{{ $json.source_file }}\"}"
+      },
+      "id": "move-done",
+      "name": "移到done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8765/move",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"source\": \"/mnt/smb/po_pdfs/incoming/{{ $json.source_file }}\", \"destination\": \"/mnt/smb/po_pdfs/error/{{ $json.source_file }}\"}"
+      },
+      "id": "move-error",
+      "name": "移到error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 300]
+    }
+  ],
+  "connections": {
+    "定时触发": {"main": [[{"node": "扫描目录", "type": "main", "index": 0}]]},
+    "扫描目录": {"main": [[{"node": "有文件?", "type": "main", "index": 0}]]},
+    "有文件?": {"main": [[{"node": "拆分文件", "type": "main", "index": 0}], []]},
+    "拆分文件": {"main": [[{"node": "解析PDF", "type": "main", "index": 0}]]},
+    "解析PDF": {"main": [[{"node": "解析成功?", "type": "main", "index": 0}]]},
+    "解析成功?": {"main": [[{"node": "移到done", "type": "main", "index": 0}], [{"node": "移到error", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"}
+}
