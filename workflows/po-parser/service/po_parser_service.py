@@ -458,7 +458,15 @@ async def scan_directory(request: ScanRequest):
             status_code=404, detail=f"Directory not found: {request.directory}"
         )
 
-    files = list(Path(request.directory).glob(request.pattern))
+    directory = Path(request.directory)
+    if request.pattern.lower() == "*.pdf":
+        files = [
+            path
+            for path in directory.iterdir()
+            if path.is_file() and path.suffix.lower() == ".pdf"
+        ]
+    else:
+        files = list(directory.glob(request.pattern))
 
     return {
         "directory": request.directory,

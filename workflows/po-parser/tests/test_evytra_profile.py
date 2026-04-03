@@ -2,6 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
 from jsonschema import Draft7Validator
 
 
@@ -103,3 +104,30 @@ def test_linux_extracted_fixture_preserves_real_layout_breaks():
     assert "OrderConfirmation @ evytra . com" in extracted_text
     assert "Your supplier ID:\n704000" in extracted_text
     assert "10\n735098\n1.000\n4001391504     TA\npcs" in extracted_text
+
+
+@pytest.mark.asyncio
+async def test_scan_directory_matches_uppercase_pdf_extension(tmp_path, monkeypatch):
+    module = load_service_module()
+    uppercase_pdf = tmp_path / "sample.PDF"
+    uppercase_pdf.write_bytes(b"fake-pdf")
+
+    original_glob = module.Path.glob
+
+    def linux_like_glob(path_obj, pattern):
+        # Simulate Linux case-sensitive glob behavior so this regression test
+        # fails on Windows before the scan implementation is fixed.
+        if pattern == "*.pdf":
+            return [
+                child for child in path_obj.iterdir() if child.name.endswith(".pdf")
+            ]
+        return original_glob(path_obj, pattern)
+
+    monkeypatch.setattr(module.Path, "glob", linux_like_glob)
+
+    result = await module.scan_directory(
+        module.ScanRequest(directory=str(tmp_path), pattern="*.pdf")
+    )
+
+    assert result["count"] == 1
+    assert result["files"] == [str(uppercase_pdf)]

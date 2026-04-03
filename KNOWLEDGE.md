@@ -190,6 +190,12 @@ For Feishu API calls:
   - `error_reason` should be `array` when it carries the parser warnings list
 - If a `Set` field is typed incorrectly, n8n can still complete side effects in upstream nodes such as file moves, but the execution itself will end in error on the final output node.
 
+### Scan Endpoint Notes
+
+- `Path.glob('*.pdf')` can behave differently across environments. On Windows it may still match uppercase `.PDF`, while on Linux it will typically be case-sensitive.
+- For the PO-Parser `/scan` endpoint, treat the default PDF scan as extension-based and case-insensitive so both `.pdf` and `.PDF` are picked up from `incoming`.
+- If scanning appears broken in production, verify the real filename casing before debugging the workflow routing.
+
 ### Batch Processing Pattern
 
 For batch operations (e.g., Feishu batch write):
