@@ -40,6 +40,9 @@ tmp/
 temp/
 *.tmp
 
+# Local git worktrees
+.worktrees/
+
 # Python cache
 __pycache__/
 *.pyc
