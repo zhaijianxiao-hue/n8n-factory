@@ -1,0 +1,32 @@
+{
+  "name": "metal-price-sync",
+  "version": "0.1.0",
+  "description": "每日金属价格抓取与同步服务",
+  "status": "development",
+  "trigger": "schedule",
+  "schedule": "0 2 * * *",
+  "input": {
+    "type": "http",
+    "sources": [
+      "http://www.huangjinjiage.cn/quote/119023.html",
+      "https://www.jinritongjia.com/hutong/"
+    ]
+  },
+  "output": {
+    "type": "api",
+    "target": "normalized JSON",
+    "endpoint": "/prices/latest"
+  },
+  "dependencies": {
+    "python": ">=3.10",
+    "fastapi": ">=0.100.0",
+    "httpx": ">=0.24.0",
+    "beautifulsoup4": ">=4.12.0",
+    "pydantic": ">=2.0.0"
+  },
+  "service_port": 8766,
+  "tags": ["metal-price", "gold", "copper", "scheduled", "sap-sync"],
+  "owner": "财务部",
+  "created_at": "2026-04-15",
+  "updated_at": "2026-04-15"
+}
