@@ -223,6 +223,56 @@ def parse_copper_price(html_content: str) -> Dict[str, Any]:
     raise ValueError("Copper price not found in HTML")
 
 
+def parse_copper_price_from_data(
+    data: Dict[str, Any], source_url: str = COPPER_SOURCE_URL
+) -> Dict[str, Any]:
+    """
+    从铜数据API响应解析价格
+
+    Args:
+        data: API返回的数据结构（通常是JSON）
+        source_url: 来源URL
+
+    Returns:
+        标准化的金属价格字典
+
+    Raises:
+        ValueError: 无法解析价格或数据结构异常
+    """
+    try:
+        if "data" in data and "list" in data["data"]:
+            items = data["data"]["list"]
+            for item in items:
+                name = item.get("name", "")
+                if "铜" in name or "copper" in name.lower():
+                    price_text = item.get("price", "")
+                    if price_text:
+                        price_value = float(price_text)
+                        unit_text = item.get("unit", "元/吨")
+
+                        unit = "t" if "吨" in unit_text else "kg"
+
+                        price_date = item.get(
+                            "date", datetime.utcnow().strftime("%Y-%m-%d")
+                        )
+
+                        return {
+                            "metal_code": "copper",
+                            "source_url": source_url,
+                            "price": price_value,
+                            "currency": "CNY",
+                            "unit": unit,
+                            "price_date": price_date,
+                        }
+
+            raise ValueError("Copper price not found in data list")
+
+        raise ValueError("Unexpected data structure for copper price")
+
+    except (KeyError, TypeError, ValueError) as e:
+        raise ValueError(f"Failed to parse copper price: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
 
