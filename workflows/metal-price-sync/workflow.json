@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "url": "http://localhost:8766/prices/latest",
+        "url": "http://10.142.1.135:8766/prices/latest",
         "authentication": "none",
         "options": {
           "timeout": 60000
