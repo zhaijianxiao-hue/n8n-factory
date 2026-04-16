@@ -771,4 +771,68 @@ Contains all endpoints, schemas, and examples.
 | 2026-04-02 | Added: Detailed n8n Node Structure comparison table (UI Export vs Hand-Crafted) |
 | 2026-04-02 | Added: API Payload Format validation rules |
 | 2026-04-02 | Added: test006.json as golden reference template with full node structure |
+
+---
+
+## Metal Price Sync Pattern (2026-04-15)
+
+### 独立价格抓取服务
+
+新增 `metal-price-sync` 产品，遵循 `po-parser` 的服务模式：
+
+- **服务边界**: Python服务只负责抓取和标准化，不直接写SAP
+- **端口隔离**: 与po-parser (8765) 不同端口 (8766)
+- **同机部署**: 与po-parser部署在同一台服务器，不同进程
+- **n8n集成**: n8n负责调度、校验、SAP写入
+
+### V1严格失败规则
+
+- 黄金或铜任意缺失 → 整体status为error
+- 不允许部分成功写入SAP
+- 失败时完全阻断SAP写入
+
+### 数据源策略
+
+**黄金:**
+- 直接HTTP抓取 + HTML解析
+- 使用BeautifulSoup确定性提取
+- 不依赖浏览器自动化
+
+**铜:**
+- V1需要调研真实数据endpoint
+- 优先HTTP直接调用，避免JS渲染层
+- 如endpoint不稳定，返回明确error而非浏览器方案
+
+### 响应结构
+
+```json
+{
+  "status": "success|error",
+  "fetched_at": "ISO timestamp",
+  "source_status": {"gold": "...", "copper": "..."},
+  "prices": {"gold": {...}, "copper": {...}},
+  "warnings": [],
+  "errors": [{"source": "...", "code": "...", "message": "..."}]
+}
+```
+
+### TDD实践
+
+- 先写fixtures样例数据
+- 先写测试验证失败
+- 写最小实现
+- 测试通过后commit
+- 每个parser独立测试文件
+
+### n8n Workflow节点
+
+- `定时触发` - cron: 0 2 * * *
+- `获取金铜价格` - HTTP请求到service
+- `检查抓取结果` - If节点校验status
+- `转换 SAP 请求体` - Set节点映射字段
+- `写入 SAP` - HTTP请求（endpoint待配置）
+- `检查 SAP 返回` - If节点校验响应
+- `失败处理` - NoOp placeholder，可扩展告警
+
+| 2026-04-15 | Added: Metal Price Sync Pattern with service architecture and V1 strict failure rule |
 | 2026-04-03 | Added: Project n8n skill (skills/n8n/) with Python API wrapper, tester, and optimizer |
