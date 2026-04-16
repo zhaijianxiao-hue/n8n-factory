@@ -2,17 +2,34 @@
 
 ## ⚠️ Knowledge Base
 
-**All agents MUST read `KNOWLEDGE.md` at the repository root before working on n8n-related tasks.**
+**All agents MUST read these files before working:**
 
-This knowledge base contains:
-- n8n API capabilities and usage patterns
-- Expression syntax and common pitfalls
-- Workflow development and debugging patterns
-- Feishu API integration knowledge
-- Execution data structures
-- test006.json as golden reference for node structure
+1. `KNOWLEDGE.md` - n8n 核心知识和通用规则（精简版）
+2. `LEARNINGS.md` - **踩坑记录和避坑指南**（新增）
+3. `workflows/*/KNOWLEDGE.md` - 产品专属知识
 
-If you add new patterns or discoveries, **update KNOWLEDGE.md** to preserve institutional knowledge.
+### 踩坑记录规则（重要）
+
+**发现新踩坑时，必须登记到 `LEARNINGS.md`：**
+
+格式：
+```
+### X. [踩坑标题]
+**问题**: ...
+**根因**: ...
+**解决**: ...
+**预防规则**: 新会话如何避免
+```
+
+**示例踩坑**:
+- n8n Docker 调用同机服务不能用 `localhost`，必须用宿主机 IP
+- If node V2 字符串比较需 `caseSensitive: true`
+- Set node V3.4 数组必须声明 `type: "array"`
+
+If you add new patterns or discoveries, **update appropriate files:**
+- 通用知识 → `KNOWLEDGE.md`
+- 踩坑记录 → `LEARNINGS.md`
+- 产品专属 → `workflows/*/KNOWLEDGE.md`
 
 ## 📦 Project Skills
 
