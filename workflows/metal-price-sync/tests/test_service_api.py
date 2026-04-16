@@ -80,3 +80,25 @@ def test_prices_latest_endpoint_copper_fields():
         assert copper["metal_code"] == "copper"
         assert "price" in copper
         assert "price_date" in copper
+
+
+def test_prices_latest_strict_failure_rule():
+    """
+    V1严格规则：gold或copper任意缺失时status必须为error
+
+    根据spec要求，V1不允许部分成功，必须两者都成功才返回success
+    """
+    from service.metal_price_service import app
+
+    client = TestClient(app)
+    response = client.get("/prices/latest")
+    data = response.json()
+
+    gold_ok = data["source_status"]["gold"] == "success"
+    copper_ok = data["source_status"]["copper"] == "success"
+
+    if not (gold_ok and copper_ok):
+        assert data["status"] == "error"
+
+    if gold_ok and copper_ok:
+        assert data["status"] == "success"
