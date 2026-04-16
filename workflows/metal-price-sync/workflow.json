@@ -1,0 +1,221 @@
+{
+  "name": "Metal Price Sync - 每日金属价格同步",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "name": "定时触发",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8766/prices/latest",
+        "authentication": "none",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "name": "获取金铜价格",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "success"
+            }
+          ]
+        }
+      },
+      "name": "检查抓取结果",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "values": {
+          "string": [
+            {
+              "name": "metal_code_gold",
+              "value": "={{ $json.prices.gold.metal_code }}"
+            },
+            {
+              "name": "price_gold",
+              "value": "={{ $json.prices.gold.price }}"
+            },
+            {
+              "name": "currency_gold",
+              "value": "={{ $json.prices.gold.currency }}"
+            },
+            {
+              "name": "price_date_gold",
+              "value": "={{ $json.prices.gold.price_date }}"
+            },
+            {
+              "name": "metal_code_copper",
+              "value": "={{ $json.prices.copper.metal_code }}"
+            },
+            {
+              "name": "price_copper",
+              "value": "={{ $json.prices.copper.price }}"
+            },
+            {
+              "name": "currency_copper",
+              "value": "={{ $json.prices.copper.currency }}"
+            },
+            {
+              "name": "price_date_copper",
+              "value": "={{ $json.prices.copper.price_date }}"
+            }
+          ]
+        }
+      },
+      "name": "转换 SAP 请求体",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "url": "SAP_ENDPOINT_URL_PLACEHOLDER",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "name": "写入 SAP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1050, 200],
+      "notes": "SAP endpoint和认证需要在部署时配置"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "number": [
+            {
+              "value1": "={{ $json.statusCode }}",
+              "value2": 200
+            }
+          ]
+        }
+      },
+      "name": "检查 SAP 返回",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {},
+      "name": "失败处理",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1250, 400],
+      "notes": "后续可扩展为发送告警或写入日志"
+    }
+  ],
+  "connections": {
+    "定时触发": {
+      "main": [
+        [
+          {
+            "node": "获取金铜价格",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "获取金铜价格": {
+      "main": [
+        [
+          {
+            "node": "检查抓取结果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "检查抓取结果": {
+      "main": [
+        [
+          {
+            "node": "转换 SAP 请求体",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "失败处理",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "转换 SAP 请求体": {
+      "main": [
+        [
+          {
+            "node": "写入 SAP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "写入 SAP": {
+      "main": [
+        [
+          {
+            "node": "检查 SAP 返回",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "检查 SAP 返回": {
+      "main": [
+        [],
+        [
+          {
+            "node": "失败处理",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
+}
