@@ -23,7 +23,7 @@ GOLD_SOURCE_URL = os.getenv(
     "GOLD_SOURCE_URL", "http://www.huangjinjiage.cn/quote/119023.html"
 )
 COPPER_SOURCE_URL = os.getenv(
-    "COPPER_SOURCE_URL", "https://www.jinritongjia.com/hutong/"
+    "COPPER_SOURCE_URL", "https://www.jinritongjia.com/d/tong.js"
 )
 
 
@@ -161,29 +161,28 @@ async def fetch_copper_price() -> MetalPrice:
 def parse_gold_price(html_content: str) -> Dict[str, Any]:
     soup = BeautifulSoup(html_content, "html.parser")
 
-    price_element = soup.find("span", class_="price-value")
-    if not price_element:
-        raise ValueError("Gold price not found in HTML")
+    gold_row = soup.find("tr", id="g1")
+    if not gold_row:
+        raise ValueError("Gold price row not found in HTML")
 
-    price_text = price_element.get_text(strip=True)
+    price_cells = gold_row.find_all("td")
+    if len(price_cells) < 4:
+        raise ValueError("Gold price cells not found")
+
+    price_cell = gold_row.find("td", class_="red")
+    if not price_cell:
+        price_cell = price_cells[2]
+
+    price_text = price_cell.get_text(strip=True)
     try:
         price = float(price_text)
     except ValueError:
         raise ValueError(f"Cannot parse gold price: {price_text}")
 
-    unit_element = soup.find("span", class_="price-unit")
-    unit_text = unit_element.get_text(strip=True) if unit_element else "元/克"
-
-    unit_normalized = "g"
-    if "克" in unit_text or "g" in unit_text.lower():
-        unit_normalized = "g"
-    elif "公斤" in unit_text or "kg" in unit_text.lower():
-        unit_normalized = "kg"
-
-    date_element = soup.find("div", class_="price-date")
+    date_cell = gold_row.find("td", class_="daTime")
     price_date = (
-        date_element.get_text(strip=True)
-        if date_element
+        date_cell.get_text(strip=True)
+        if date_cell
         else datetime.utcnow().strftime("%Y-%m-%d")
     )
 
@@ -191,36 +190,40 @@ def parse_gold_price(html_content: str) -> Dict[str, Any]:
         "metal_code": "gold",
         "price": price,
         "currency": "CNY",
-        "unit": unit_normalized,
+        "unit": "g",
         "price_date": price_date,
         "source_url": GOLD_SOURCE_URL,
     }
 
 
-def parse_copper_price(html_content: str) -> Dict[str, Any]:
-    soup = BeautifulSoup(html_content, "html.parser")
+def parse_copper_price(js_content: str) -> Dict[str, Any]:
+    match = re.search(r'var hq_str_nf_CU0="([^"]+)"', js_content)
+    if not match:
+        raise ValueError("Copper price data not found in JS")
 
-    script_tags = soup.find_all("script")
-    for script in script_tags:
-        if script.string and "list" in script.string:
-            match = re.search(r'"price"\s*:\s*"(\d+)"', script.string)
-            if match:
-                price_text = match.group(1)
-                try:
-                    price = float(price_text)
-                except ValueError:
-                    raise ValueError(f"Cannot parse copper price: {price_text}")
+    csv_data = match.group(1)
+    fields = csv_data.split(",")
 
-                return {
-                    "metal_code": "copper",
-                    "price": price,
-                    "currency": "CNY",
-                    "unit": "t",
-                    "price_date": datetime.utcnow().strftime("%Y-%m-%d"),
-                    "source_url": COPPER_SOURCE_URL,
-                }
+    if len(fields) < 9:
+        raise ValueError(f"Insufficient copper price fields: {len(fields)}")
 
-    raise ValueError("Copper price not found in HTML")
+    try:
+        price = float(fields[8])
+    except ValueError:
+        raise ValueError(f"Cannot parse copper price: {fields[8]}")
+
+    price_date = (
+        fields[17] if len(fields) > 17 else datetime.utcnow().strftime("%Y-%m-%d")
+    )
+
+    return {
+        "metal_code": "copper",
+        "price": price,
+        "currency": "CNY",
+        "unit": "t",
+        "price_date": price_date,
+        "source_url": COPPER_SOURCE_URL,
+    }
 
 
 def parse_copper_price_from_data(

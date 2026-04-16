@@ -6,12 +6,26 @@
 
 ---
 
-## 产品索引
+## 知识库索引
+
+### 主题知识（跨产品）
+
+| 主题 | 目录 | 说明 |
+|------|------|------|
+| 飞书多维表格 | `topics/feishu/` | Token、API、权限、踩坑 |
+| SAP RFC | `topics/sap/` | BAPI 调用（待建） |
+
+### 产品知识
 
 | 产品 | 目录 | 端口 | 说明 |
 |------|------|------|------|
 | po-parser | `workflows/po-parser/` | 8765 | PO PDF 解析服务 |
 | metal-price-sync | `workflows/metal-price-sync/` | 8766 | 金属价格同步服务 |
+| old-erp-sync | `workflows/old-erp-sync/` | - | 老 ERP → 飞书流程 |
+
+### 踩坑记录
+
+- `LEARNINGS.md` - 所有踩坑汇总
 
 ---
 

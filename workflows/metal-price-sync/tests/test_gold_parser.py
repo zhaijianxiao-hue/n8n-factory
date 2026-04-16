@@ -16,10 +16,10 @@ def test_parse_gold_price_from_sample_html():
     result = parse_gold_price(html_content)
 
     assert result["metal_code"] == "gold"
-    assert result["price"] == 761.23
+    assert result["price"] == 1057.9
     assert result["currency"] == "CNY"
     assert result["unit"] == "g"
-    assert result["price_date"] == "2026-04-15"
+    assert result["price_date"] == "2026-4-16"
     assert "source_url" in result
 
 
@@ -29,5 +29,5 @@ def test_parse_gold_price_missing_price_field():
 
     from service.metal_price_service import parse_gold_price
 
-    with pytest.raises(ValueError, match="price not found"):
+    with pytest.raises(ValueError, match="Gold price row not found"):
         parse_gold_price(html_content)

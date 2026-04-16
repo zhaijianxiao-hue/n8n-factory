@@ -26,6 +26,37 @@
 
 ---
 
+### 2. HTML 解析预期结构与实际不符
+
+**问题**: Parser 代码预期 `<span class="price-value">`，但实际网站是 `<tr id="g1">` 表格结构，导致抓取失败。
+
+**根因**: 
+- 编写 parser 时假设 HTML 结构，未先验证真实网站
+- Fixture 文件是简化结构，与生产环境不符
+
+**解决**: 
+- 先用 curl 抓取真实 HTML，分析实际 DOM 结构
+- 更新 fixture 与 parser 同时适配真实结构
+- 铜价格发现是 JS 动态加载，需调用 API endpoint `tong.js`
+
+**预防规则**:
+```
+Web 抓取开发流程：
+1. ✅ 先 curl 抓取真实页面 → 分析 HTML 结构
+2. ✅ 用真实 HTML 创建 fixture
+3. ✅ Parser 代码匹配真实结构
+4. ❌ 不要假设或猜测 DOM 结构
+
+动态加载检测：
+- 检查 <script> 标签中的数据加载逻辑
+- 找真实 API endpoint（如 tong.js）
+- 静态 HTML 抓取可能无法获取 JS 动态内容
+```
+
+**影响范围**: 所有 web scraping parser 开发（金价、铜价、其他数据抓取）。
+
+---
+
 ## 2026-04-03
 
 ### 2. n8n If node V2 字段匹配问题
