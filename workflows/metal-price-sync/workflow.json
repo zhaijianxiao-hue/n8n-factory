@@ -107,14 +107,22 @@
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
           },
-          "string": [
+          "conditions": [
             {
-              "value1": "={{ $json.status }}",
-              "value2": "success"
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
-          ]
+          ],
+          "combinator": "and"
         }
       },
       "name": "检查抓取结果",
@@ -197,14 +205,22 @@
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
           },
-          "boolean": [
+          "conditions": [
             {
-              "value1": "={{ $json.success }}",
-              "value2": true
+              "leftValue": "={{ $json.type }}",
+              "rightValue": "S",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
-          ]
+          ],
+          "combinator": "and"
         }
       },
       "name": "检查 SAP 返回",
