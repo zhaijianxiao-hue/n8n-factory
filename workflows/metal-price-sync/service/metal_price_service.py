@@ -9,7 +9,7 @@ import uuid
 import json
 from datetime import datetime
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from fastapi import FastAPI, HTTPException
 import httpx
 from bs4 import BeautifulSoup
@@ -62,9 +62,18 @@ class ErrorResponse(BaseModel):
 
 
 class SoapBodyRequest(BaseModel):
-    gold_price: float
-    copper_price: float
+    gold_price: float = Field(..., gt=0, le=100000, description="Gold price in CNY/g")
+    copper_price: float = Field(..., gt=0, le=10000000, description="Copper price in CNY/t")
     price_date: str
+    
+    @field_validator('price_date')
+    @classmethod
+    def validate_price_date(cls, v):
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+            return v
+        except ValueError:
+            raise ValueError('price_date must be in YYYY-MM-DD format')
 
 
 class SoapBodyResponse(BaseModel):

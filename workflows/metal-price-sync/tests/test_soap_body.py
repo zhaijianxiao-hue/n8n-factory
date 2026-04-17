@@ -5,6 +5,7 @@ SOAP Body endpoint tests
 
 import pytest
 import re
+import json
 from fastapi.testclient import TestClient
 
 
@@ -142,7 +143,6 @@ def test_soap_body_copper_unit_conversion():
     assert i_input_match is not None
     
     # Parse JSON from I_INPUT
-    import json
     i_input_json = i_input_match.group(1)
     payload = json.loads(i_input_json)
     
@@ -283,3 +283,93 @@ def test_soap_body_rtime_format():
     # Verify valid time range (000000-235959)
     hour = int(rtime[:2])
     assert 0 <= hour <= 23
+
+
+def test_soap_body_invalid_date_format():
+    """测试无效日期格式返回422验证错误"""
+    from service.metal_price_service import app
+
+    client = TestClient(app)
+    
+    response = client.post(
+        "/prices/soap-body",
+        json={
+            "gold_price": 1057.9,
+            "copper_price": 103300,
+            "price_date": "2026/04/17"  # Wrong format - should be YYYY-MM-DD
+        }
+    )
+    
+    assert response.status_code == 422
+
+
+def test_soap_body_negative_price():
+    """测试负价格返回422验证错误"""
+    from service.metal_price_service import app
+
+    client = TestClient(app)
+    
+    response = client.post(
+        "/prices/soap-body",
+        json={
+            "gold_price": -100,  # Negative - should be rejected
+            "copper_price": 103300,
+            "price_date": "2026-04-17"
+        }
+    )
+    
+    assert response.status_code == 422
+
+
+def test_soap_body_zero_price():
+    """测试零价格返回422验证错误"""
+    from service.metal_price_service import app
+
+    client = TestClient(app)
+    
+    response = client.post(
+        "/prices/soap-body",
+        json={
+            "gold_price": 0,  # Zero - should be rejected (gt=0)
+            "copper_price": 103300,
+            "price_date": "2026-04-17"
+        }
+    )
+    
+    assert response.status_code == 422
+
+
+def test_soap_body_exceeds_max_gold_price():
+    """测试金价超过最大值返回422验证错误"""
+    from service.metal_price_service import app
+
+    client = TestClient(app)
+    
+    response = client.post(
+        "/prices/soap-body",
+        json={
+            "gold_price": 100001,  # Exceeds max of 100000
+            "copper_price": 103300,
+            "price_date": "2026-04-17"
+        }
+    )
+    
+    assert response.status_code == 422
+
+
+def test_soap_body_exceeds_max_copper_price():
+    """测试铜价超过最大值返回422验证错误"""
+    from service.metal_price_service import app
+
+    client = TestClient(app)
+    
+    response = client.post(
+        "/prices/soap-body",
+        json={
+            "gold_price": 1057.9,
+            "copper_price": 10000001,  # Exceeds max of 10000000
+            "price_date": "2026-04-17"
+        }
+    )
+    
+    assert response.status_code == 422
