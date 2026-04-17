@@ -5,6 +5,7 @@ FastAPI服务，抓取并标准化黄金和铜价格
 
 import re
 import os
+import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel
@@ -59,6 +60,16 @@ class ErrorResponse(BaseModel):
     errors: List[Dict[str, str]] = []
 
 
+class SoapBodyRequest(BaseModel):
+    gold_price: float
+    copper_price: float
+    price_date: str
+
+
+class SoapBodyResponse(BaseModel):
+    soap_body: str
+
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "metal-price-sync", "port": SERVICE_PORT}
@@ -92,6 +103,50 @@ async def get_latest_prices():
     )
 
     return response
+
+
+@app.post("/prices/soap-body")
+def build_soap_body(request: SoapBodyRequest) -> SoapBodyResponse:
+    """
+    Build SAP SOAP XML body for metal prices.
+    
+    Args:
+        request: Contains gold_price, copper_price, price_date
+        
+    Returns:
+        SoapBodyResponse with soap_body XML string
+    """
+    # Parse price_date and format
+    price_datetime = datetime.strptime(request.price_date, "%Y-%m-%d")
+    rdate = price_datetime.strftime("%Y%m%d")
+    rtime = datetime.utcnow().strftime("%H%M%S")
+    
+    # Generate UUID
+    guid = str(uuid.uuid4())
+    
+    # Convert copper price: 元/吨 → 万元 (divide by 10000, round to 2 decimals)
+    copper_price_wan = round(request.copper_price / 10000, 2)
+    
+    # Build SOAP XML
+    soap_body = f"""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+   <soapenv:Body>
+      <ZFI_MATEPRICE_FU>
+         <BUTYPE>FI0056</BUTYPE>
+         <SYSID>n8n</SYSID>
+         <HOST>n8n</HOST>
+         <IPADDR>n8n</IPADDR>
+         <USERID>n8n</USERID>
+         <UNAME>n8n</UNAME>
+         <RDATE>{rdate}</RDATE>
+         <RTIME>{rtime}</RTIME>
+         <GUID>{guid}</GUID>
+         <GOLDPRICE>{request.gold_price}</GOLDPRICE>
+         <COPPERPRICE>{copper_price_wan}</COPPERPRICE>
+      </ZFI_MATEPRICE_FU>
+   </soapenv:Body>
+</soapenv:Envelope>"""
+    
+    return SoapBodyResponse(soap_body=soap_body)
 
 
 async def fetch_gold_price() -> MetalPrice:
