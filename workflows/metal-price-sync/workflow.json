@@ -2,6 +2,63 @@
   "name": "Metal Price Sync - 每日金属价格同步",
   "nodes": [
     {
+      "parameters": {},
+      "name": "手动触发",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [50, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true
+                },
+                "string": [
+                  {
+                    "value1": "={{ $json.system_type }}",
+                    "value2": "test"
+                  }
+                ]
+              },
+              "output": 0
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true
+                },
+                "string": [
+                  {
+                    "value1": "={{ $json.system_type }}",
+                    "value2": "prod"
+                  }
+                ]
+              },
+              "output": 1
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "选择系统",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [150, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemType = $input.first().json.system_type || 'test';\nconst config = {\n  test: {\n    url: 'http://10.142.1.20:8000/sap/bc/srt/rfc/sap/zws_general/600/zws_general/zbd_general?sap-client=600',\n    credentialName: 'SAP Test System'\n  },\n  prod: {\n    url: 'PROD_URL_PLACEHOLDER',\n    credentialName: 'SAP Production System'\n  }\n};\nreturn [{ json: config[systemType] }];"
+      },
+      "name": "获取 SAP 配置",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 300]
+    },
+    {
       "parameters": {
         "rule": {
           "interval": [
@@ -15,7 +72,7 @@
       "name": "定时触发",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.1,
-      "position": [250, 300]
+      "position": [250, 500]
     },
     {
       "parameters": {
@@ -56,36 +113,16 @@
         "values": {
           "string": [
             {
-              "name": "metal_code_gold",
-              "value": "={{ $json.prices.gold.metal_code }}"
-            },
-            {
-              "name": "price_gold",
+              "name": "gold_price",
               "value": "={{ $json.prices.gold.price }}"
             },
             {
-              "name": "currency_gold",
-              "value": "={{ $json.prices.gold.currency }}"
-            },
-            {
-              "name": "price_date_gold",
-              "value": "={{ $json.prices.gold.price_date }}"
-            },
-            {
-              "name": "metal_code_copper",
-              "value": "={{ $json.prices.copper.metal_code }}"
-            },
-            {
-              "name": "price_copper",
+              "name": "copper_price",
               "value": "={{ $json.prices.copper.price }}"
             },
             {
-              "name": "currency_copper",
-              "value": "={{ $json.prices.copper.currency }}"
-            },
-            {
-              "name": "price_date_copper",
-              "value": "={{ $json.prices.copper.price_date }}"
+              "name": "price_date",
+              "value": "={{ $json.prices.gold.price_date }}"
             }
           ]
         }
@@ -97,16 +134,48 @@
     },
     {
       "parameters": {
-        "url": "SAP_ENDPOINT_URL_PLACEHOLDER",
+        "method": "POST",
+        "url": "http://10.142.1.135:8766/prices/soap-body",
+        "authentication": "none",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"gold_price\": {{ $json.gold_price }},\n  \"copper_price\": {{ $json.copper_price }},\n  \"price_date\": \"{{ $json.price_date }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "构建 SOAP Body",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('获取 SAP 配置').item.json.url }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "options": {}
+        "sendBody": true,
+        "specifyBody": "raw",
+        "rawBody": "={{ $json.soap_body }}",
+        "options": {
+          "timeout": 60000
+        }
       },
       "name": "写入 SAP",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [1050, 200],
-      "notes": "SAP endpoint和认证需要在部署时配置"
+      "position": [1250, 200],
+      "notes": "SAP endpoint 和认证需要在部署时配置"
+    },
+    {
+      "parameters": {
+        "jsCode": "const soapXml = $input.first().json.data || $input.first().json.body || $input.first().json;\n\n// Handle case where soapXml might be an object\nconst soapContent = typeof soapXml === 'object' ? JSON.stringify(soapXml) : String(soapXml);\n\n// Extract E_OUTPUT from SOAP response\nconst match = soapContent.match(/<E_OUTPUT>([^<]+)<\\/E_OUTPUT>/);\nif (!match) {\n  return [{ json: { success: false, error: 'E_OUTPUT not found in SOAP response', raw: soapContent.substring(0, 500) } }];\n}\n\ntry {\n  const eOutput = JSON.parse(match[1]);\n  return [{\n    json: {\n      success: eOutput.TYPE === 'S',\n      type: eOutput.TYPE,\n      message: eOutput.MESSAGE,\n      error: eOutput.TYPE !== 'S' ? eOutput.MESSAGE : null\n    }\n  }];\n} catch (parseError) {\n  return [{ json: { success: false, error: 'Failed to parse E_OUTPUT JSON: ' + parseError.message, raw: match[1] } }];\n}"
+      },
+      "name": "解析 SOAP 响应",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 200]
     },
     {
       "parameters": {
@@ -114,10 +183,10 @@
           "options": {
             "caseSensitive": true
           },
-          "number": [
+          "boolean": [
             {
-              "value1": "={{ $json.statusCode }}",
-              "value2": 200
+              "value1": "={{ $json.success }}",
+              "value2": true
             }
           ]
         }
@@ -125,23 +194,63 @@
       "name": "检查 SAP 返回",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1250, 200]
+      "position": [1650, 200]
     },
     {
       "parameters": {},
       "name": "失败处理",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [1250, 400],
+      "position": [1650, 400],
       "notes": "后续可扩展为发送告警或写入日志"
     }
   ],
   "connections": {
-    "定时触发": {
+    "手动触发": {
+      "main": [
+        [
+          {
+            "node": "选择系统",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "选择系统": {
+      "main": [
+        [
+          {
+            "node": "获取 SAP 配置",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "获取 SAP 配置",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "获取 SAP 配置": {
       "main": [
         [
           {
             "node": "获取金铜价格",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "定时触发": {
+      "main": [
+        [
+          {
+            "node": "获取 SAP 配置",
             "type": "main",
             "index": 0
           }
@@ -181,6 +290,17 @@
       "main": [
         [
           {
+            "node": "构建 SOAP Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "构建 SOAP Body": {
+      "main": [
+        [
+          {
             "node": "写入 SAP",
             "type": "main",
             "index": 0
@@ -189,6 +309,17 @@
       ]
     },
     "写入 SAP": {
+      "main": [
+        [
+          {
+            "node": "解析 SOAP 响应",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "解析 SOAP 响应": {
       "main": [
         [
           {
