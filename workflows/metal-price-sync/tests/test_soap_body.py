@@ -52,14 +52,23 @@ def test_soap_body_xml_structure():
     
     # Verify SOAP envelope structure
     assert "<soapenv:Envelope" in soap_body
-    assert "xmlns:soapenv" in soap_body
+    assert 'xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"' in soap_body
+    assert 'xmlns:urn="urn:sap-com:document:sap:rfc:functions"' in soap_body
+    assert "<soapenv:Header/>" in soap_body
     assert "<soapenv:Body>" in soap_body
     assert "</soapenv:Body>" in soap_body
     assert "</soapenv:Envelope>" in soap_body
     
-    # Verify SAP-specific elements exist
-    assert "<ZFI_MATEPRICE_FU>" in soap_body
-    assert "</ZFI_MATEPRICE_FU>" in soap_body
+    # Verify SAP-specific elements exist with correct function name
+    assert "<urn:Z_FMBC_IF_INBOUND>" in soap_body
+    assert "</urn:Z_FMBC_IF_INBOUND>" in soap_body
+    
+    # Verify I_DATA_GD wrapper element
+    assert "<I_DATA_GD>" in soap_body
+    assert "</I_DATA_GD>" in soap_body
+    
+    # Verify required fields inside I_DATA_GD
+    assert "<GUID>" in soap_body
     assert "<BUTYPE>" in soap_body
     assert "<SYSID>" in soap_body
     assert "<HOST>" in soap_body
@@ -68,9 +77,14 @@ def test_soap_body_xml_structure():
     assert "<UNAME>" in soap_body
     assert "<RDATE>" in soap_body
     assert "<RTIME>" in soap_body
-    assert "<GUID>" in soap_body
-    assert "<GOLDPRICE>" in soap_body
-    assert "<COPPERPRICE>" in soap_body
+    
+    # Verify I_INPUT element for JSON payload
+    assert "<I_INPUT>" in soap_body
+    assert "</I_INPUT>" in soap_body
+    
+    # Verify JSON structure in I_INPUT
+    assert '"GOLD"' in soap_body
+    assert '"COPPER"' in soap_body
 
 
 def test_soap_body_guid_format():
@@ -123,15 +137,24 @@ def test_soap_body_copper_unit_conversion():
     data = response.json()
     soap_body = data["soap_body"]
     
-    # Extract COPPERPRICE from XML
-    copper_match = re.search(r"<COPPERPRICE>([^<]+)</COPPERPRICE>", soap_body)
-    assert copper_match is not None
+    # Extract I_INPUT JSON from XML
+    i_input_match = re.search(r"<I_INPUT>([^<]+)</I_INPUT>", soap_body)
+    assert i_input_match is not None
     
-    copper_price_output = float(copper_match.group(1))
+    # Parse JSON from I_INPUT
+    import json
+    i_input_json = i_input_match.group(1)
+    payload = json.loads(i_input_json)
     
-    # Expected: 103300 / 10000 = 10.33 (rounded to 2 decimals)
+    # Verify copper price conversion: 103300 / 10000 = 10.33
+    assert "COPPER" in payload
+    copper_price_output = float(payload["COPPER"])
     expected_copper = 10.33
     assert copper_price_output == expected_copper
+    
+    # Verify gold price is passed through
+    assert "GOLD" in payload
+    assert float(payload["GOLD"]) == 1057.9
     
     # Test edge case: exact decimal
     response2 = client.post(
@@ -145,11 +168,11 @@ def test_soap_body_copper_unit_conversion():
     
     data2 = response2.json()
     soap_body2 = data2["soap_body"]
-    copper_match2 = re.search(r"<COPPERPRICE>([^<]+)</COPPERPRICE>", soap_body2)
-    copper_price_output2 = float(copper_match2.group(1))
+    i_input_match2 = re.search(r"<I_INPUT>([^<]+)</I_INPUT>", soap_body2)
+    payload2 = json.loads(i_input_match2.group(1))
     
     expected_copper2 = 9.85
-    assert copper_price_output2 == expected_copper2
+    assert float(payload2["COPPER"]) == expected_copper2
 
 
 def test_soap_body_fixed_fields():

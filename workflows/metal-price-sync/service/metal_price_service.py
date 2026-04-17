@@ -6,6 +6,7 @@ FastAPI服务，抓取并标准化黄金和铜价格
 import re
 import os
 import uuid
+import json
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel
@@ -127,22 +128,32 @@ def build_soap_body(request: SoapBodyRequest) -> SoapBodyResponse:
     # Convert copper price: 元/吨 → 万元 (divide by 10000, round to 2 decimals)
     copper_price_wan = round(request.copper_price / 10000, 2)
     
-    # Build SOAP XML
-    soap_body = f"""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+    # Build JSON payload for I_INPUT (exact format per spec)
+    i_input_dict = {
+        "GOLD": str(request.gold_price),
+        "COPPER": str(copper_price_wan)
+    }
+    # Format JSON with specific indentation per spec: newline, 1 space before keys
+    i_input_json = '\n' + json.dumps(i_input_dict, indent=1).replace('\n  ', '\n ')
+    
+    # Build SOAP XML with correct SAP RFC structure
+    soap_body = f"""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:sap-com:document:sap:rfc:functions">
+   <soapenv:Header/>
    <soapenv:Body>
-      <ZFI_MATEPRICE_FU>
-         <BUTYPE>FI0056</BUTYPE>
-         <SYSID>n8n</SYSID>
-         <HOST>n8n</HOST>
-         <IPADDR>n8n</IPADDR>
-         <USERID>n8n</USERID>
-         <UNAME>n8n</UNAME>
-         <RDATE>{rdate}</RDATE>
-         <RTIME>{rtime}</RTIME>
-         <GUID>{guid}</GUID>
-         <GOLDPRICE>{request.gold_price}</GOLDPRICE>
-         <COPPERPRICE>{copper_price_wan}</COPPERPRICE>
-      </ZFI_MATEPRICE_FU>
+      <urn:Z_FMBC_IF_INBOUND>
+         <I_DATA_GD>
+            <GUID>{guid}</GUID>
+            <BUTYPE>FI0056</BUTYPE>
+            <SYSID>n8n</SYSID>
+            <HOST>n8n</HOST>
+            <IPADDR>n8n</IPADDR>
+            <USERID>n8n</USERID>
+            <UNAME>n8n</UNAME>
+            <RDATE>{rdate}</RDATE>
+            <RTIME>{rtime}</RTIME>
+         </I_DATA_GD>
+         <I_INPUT>{i_input_json}</I_INPUT>
+      </urn:Z_FMBC_IF_INBOUND>
    </soapenv:Body>
 </soapenv:Envelope>"""
     
