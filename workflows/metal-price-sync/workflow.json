@@ -15,28 +15,44 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
                 },
-                "string": [
+                "conditions": [
                   {
-                    "value1": "={{ $json.system_type }}",
-                    "value2": "test"
+                    "leftValue": "={{ $json.system_type }}",
+                    "rightValue": "test",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                ]
+                ],
+                "combinator": "and"
               },
               "output": 0
             },
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
                 },
-                "string": [
+                "conditions": [
                   {
-                    "value1": "={{ $json.system_type }}",
-                    "value2": "prod"
+                    "leftValue": "={{ $json.system_type }}",
+                    "rightValue": "prod",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                ]
+                ],
+                "combinator": "and"
               },
               "output": 1
             }
