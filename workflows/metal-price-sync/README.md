@@ -133,18 +133,49 @@ WantedBy=multi-user.target
 - 严格规则：黄金和铜任意缺失都返回error，不写入SAP
 - 不使用浏览器自动化
 
-## SAP集成（待配置）
+## SAP 集成
 
-SAP写入部分由n8n负责，service不直接访问SAP。
+### 测试/生产切换
 
-**需要配置：**
-- SAP endpoint URL
-- HTTP method (POST/PUT)
-- 认证方式 (basic auth / token / cert)
-- 必需headers
-- Request body schema
-- Success response schema
-- Error response schema
+Workflow 通过 Switch 节点选择测试或生产系统：
+- 测试系统：`system_type = "test"`
+- 生产系统：`system_type = "prod"`
+
+**触发方式：**
+- 手动触发：可在 `手动触发` 节点传入 `{"system_type": "test"}` 或 `{"system_type": "prod"}`
+- 定时触发：默认使用测试系统
+
+### SOAP Endpoint
+
+| 系统 | URL | 认证 |
+|------|-----|------|
+| 测试 | `http://10.142.1.20:8000/sap/bc/srt/rfc/sap/zws_general/600/zws_general/zbd_general?sap-client=600` | Basic Auth (ZHAIYANAN) |
+| 生产 | TBD | TBD |
+
+### SOAP Body 结构
+
+Python `/prices/soap-body` 端点生成 SOAP XML：
+
+| 字段 | 来源 | 说明 |
+|------|------|------|
+| GUID | uuid.uuid4() | 每次生成新 UUID |
+| BUTYPE | 固定 FI0056 | 业务类型 |
+| SYSID/HOST/IPADDR/USERID/UNAME | 固定 n8n | 系统标识 |
+| RDATE | datetime.now() | YYYYMMDD 格式 |
+| RTIME | datetime.now() | HHMMSS 格式 |
+| GOLD | 输入参数 | 元/克，不转换 |
+| COPPER | 输入参数 ÷ 10000 | 元/吨 → 万元 |
+
+### SOAP 响应解析
+
+**成功判断：** `E_OUTPUT.TYPE === "S"`
+
+**响应示例：**
+```xml
+<E_OUTPUT>{"TYPE":"S","MESSAGE":"数据更新成功"}</E_OUTPUT>
+```
+
+**错误处理：** 记录 execution history，路由到 `失败处理` 节点
 
 ## 监控和告警
 
