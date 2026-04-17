@@ -132,28 +132,11 @@
     },
     {
       "parameters": {
-        "mode": "manual",
-        "duplicateItem": false,
-        "values": {
-          "string": [
-            {
-              "name": "gold_price",
-              "value": "={{ $json.prices.gold.price }}"
-            },
-            {
-              "name": "copper_price",
-              "value": "={{ $json.prices.copper.price }}"
-            },
-            {
-              "name": "price_date",
-              "value": "={{ $json.prices.gold.price_date }}"
-            }
-          ]
-        }
+        "jsCode": "return [{\n  json: {\n    gold_price: $json.prices.gold.price,\n    copper_price: $json.prices.copper.price,\n    price_date: $json.prices.gold.price_date\n  }\n}];"
       },
       "name": "转换 SAP 请求体",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [850, 200]
     },
     {
