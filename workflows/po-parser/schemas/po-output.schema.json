@@ -51,6 +51,10 @@
           "type": "string",
           "description": "客户联系人电话"
         },
+        "customer_contact_fax": {
+          "type": "string",
+          "description": "客户联系人传真"
+        },
         "customer_contact_email": {
           "type": "string",
           "description": "客户联系人邮箱"

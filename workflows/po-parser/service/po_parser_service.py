@@ -147,9 +147,10 @@ def parse_evytra_text(text_content: str) -> dict:
     supplier_id_match = re.search(
         r"Your supplier ID:\s*(?:\n|\s)+([\d]+)", text_content
     )
-    contact_match = re.search(r"Our contact:\s*(?:\n|\s)+(.+)", text_content)
-    email_match = re.search(r"E-Mail:\s*(?:\n|\s)+([^\n]+@[^\n]+)", text_content)
-    phone_match = re.search(r"Phone-no\.:\s*(?:\n|\s)+([^\n]+)", text_content)
+    contact_match = re.search(r"Our contact:\s*\n\s*([^\n]+)", text_content)
+    phone_match = re.search(r"Phone-no\.:\s*\n\s*([^\n]+)", text_content)
+    fax_match = re.search(r"Fax no\.:\s*\n\s*([^\n]+)", text_content)
+    email_match = re.search(r"E-Mail:\s*\n\s*([^\n]+@[^\n]+)", text_content)
     total_amount_match = re.search(
         r"Order amount\s*(?:\n|\s)+EUR\s*(?:\n|\s)+([\d\.,]+)", text_content
     )
@@ -177,7 +178,7 @@ def parse_evytra_text(text_content: str) -> dict:
     packaging_note = extract_between(
         text_content,
         ">>> Please pack the boards",
-        "Order: 30601875",
+        "Order:",
     )
 
     item_header_pattern = re.compile(
@@ -288,9 +289,10 @@ def parse_evytra_text(text_content: str) -> dict:
         "supplier_id_at_customer": supplier_id_match.group(1)
         if supplier_id_match
         else None,
-        "customer_contact_person": contact_match.group(1) if contact_match else None,
-        "customer_contact_phone": phone_match.group(1) if phone_match else None,
-        "customer_contact_email": email_match.group(1) if email_match else None,
+        "customer_contact_person": contact_match.group(1).strip() if contact_match else None,
+        "customer_contact_phone": phone_match.group(1).strip() if phone_match else None,
+        "customer_contact_fax": fax_match.group(1).strip() if fax_match else None,
+        "customer_contact_email": email_match.group(1).strip() if email_match else None,
         "supplier_name": "Tianjin Printronics Circuit Corp.",
         "supplier_contact_person": "Mrs Tina Zhang",
         "supplier_address": "No. 53 Hanghai Rd, Airport Economic Area, 300308 Tianjin / China, VR CHINA",
