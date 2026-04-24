@@ -6,6 +6,7 @@ FastAPI 服务，供 n8n 调用
 import os
 import re
 import json
+import uuid
 import hashlib
 import fitz
 import requests
@@ -21,6 +22,13 @@ app = FastAPI(title="PO Parser Service", version="1.0.0")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://10.142.1.112:11434/v1")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:27b")
+
+SAP_URL = os.getenv(
+    "SAP_URL",
+    "http://10.142.1.20:8000/sap/bc/srt/rfc/sap/zws_general/600/zws_general/zbd_general?sap-client=600",
+)
+SAP_USER = os.getenv("SAP_USER", "")
+SAP_PASS = os.getenv("SAP_PASS", "")
 
 
 class POHeader(BaseModel):
@@ -147,10 +155,14 @@ def parse_evytra_text(text_content: str) -> dict:
     supplier_id_match = re.search(
         r"Your supplier ID:\s*(?:\n|\s)+([\d]+)", text_content
     )
-    contact_match = re.search(r"Our contact:\s*\n\s*([^\n]+)", text_content)
-    phone_match = re.search(r"Phone-no\.:\s*\n\s*([^\n]+)", text_content)
-    fax_match = re.search(r"Fax no\.:\s*\n\s*([^\n]+)", text_content)
-    email_match = re.search(r"E-Mail:\s*\n\s*([^\n]+@[^\n]+)", text_content)
+    # OCR layout is misaligned: contact name appears BEFORE "Our contact:" label
+    contact_match = re.search(r"([^\n]+)\nOur contact:", text_content)
+    # Email appears AFTER "Our contact:" label
+    email_match = re.search(r"Our contact:\s*\n\s*([^\n]+@[^\n]+)", text_content)
+    # Due to OCR layout shift, phone appears after "Fax no.:" label
+    phone_match = re.search(r"Fax no\.:\s*\n\s*([+\d][\d\s/.-]+)", text_content)
+    # Fax is typically empty; if present would be after Phone-no:. but usually blank
+    fax_match = None  # No fax in current EVYTRA PDFs
     total_amount_match = re.search(
         r"Order amount\s*(?:\n|\s)+EUR\s*(?:\n|\s)+([\d\.,]+)", text_content
     )
@@ -165,21 +177,28 @@ def parse_evytra_text(text_content: str) -> dict:
         r"(>>>\s*Deliver:\s*\+\s*/\s*-\s*(\d+)\s*%\s*<<<)", text_content
     )
 
-    blanket_note = extract_between(
+    blanket_match = re.search(
+        r">>>\s*Blanket order quantity:.*?<<<",
         text_content,
-        ">>> Blanket order quantity:",
-        ">>> Deliver:",
+        re.DOTALL,
     )
-    production_note = extract_between(
+    blanket_note = normalize_whitespace(blanket_match.group(0)) if blanket_match else None
+
+    production_match = re.search(
+        r">>>\s*Production lot:.*?<<<",
         text_content,
-        ">>> Production lot:",
-        ">>> Please pack the boards",
+        re.DOTALL,
     )
-    packaging_note = extract_between(
+    production_note = (
+        normalize_whitespace(production_match.group(0)) if production_match else None
+    )
+    # Extract full packaging note: >>> Please pack ... <<<
+    packaging_match = re.search(
+        r">>>\s*Please pack the boards.*?<<<",
         text_content,
-        ">>> Please pack the boards",
-        "Order:",
+        re.DOTALL
     )
+    packaging_note = normalize_whitespace(packaging_match.group(0)) if packaging_match else None
 
     item_header_pattern = re.compile(
         r"(?P<line_no>10|20|30|40)\s+"
@@ -291,7 +310,7 @@ def parse_evytra_text(text_content: str) -> dict:
         else None,
         "customer_contact_person": contact_match.group(1).strip() if contact_match else None,
         "customer_contact_phone": phone_match.group(1).strip() if phone_match else None,
-        "customer_contact_fax": fax_match.group(1).strip() if fax_match else None,
+        "customer_contact_fax": "",  # EVYTRA PDFs do not contain fax
         "customer_contact_email": email_match.group(1).strip() if email_match else None,
         "supplier_name": "Tianjin Printronics Circuit Corp.",
         "supplier_contact_person": "Mrs Tina Zhang",
@@ -496,6 +515,177 @@ async def move_file(request: MoveRequest):
         "source": request.source,
         "destination": request.destination,
         "status": "moved",
+    }
+
+
+class ToSapRequest(BaseModel):
+    parse_result: dict
+
+
+def _build_sap_input(parse_result: dict) -> dict:
+    header = parse_result.get("header", {})
+    items = parse_result.get("items", [])
+
+    # Use a fresh random GUID for each SAP submission to prevent duplicate primary keys
+    guid = uuid.uuid4().hex.upper()[:32]
+
+    po_date_raw = header.get("po_date", "")
+    erdat = po_date_raw.replace("-", "") if po_date_raw else ""
+
+    notes_cleanup = lambda s: re.sub(r">>>\s*", "", s).replace("<<<", "").strip() if s else ""
+
+    sap_header = {
+        "GUID": guid,
+        "ZKUNNR_NAME": header.get("customer_name", ""),
+        "ZKUNNR_SNAME": header.get("customer_code", ""),
+        "BSTNK": header.get("po_number", ""),
+        "ERDAT": erdat,
+        "ZKUNNR_ADD": header.get("buyer_address", ""),
+        "ZKUNNR_CONTACT": header.get("customer_contact_person", ""),
+        "ZKUNNR_PHONE": header.get("customer_contact_phone", ""),
+        "ZKUNNR_FAX": header.get("customer_contact_fax", ""),
+        "ZKUNNR_EMAIL": header.get("customer_contact_email", ""),
+        "ZVENDOR_NO": header.get("supplier_id_at_customer", ""),
+        "ZVENDOR_NAME": header.get("supplier_name", ""),
+        "ZVENDOR_ADD": header.get("supplier_address", ""),
+        "ZVENDOR_CONTACT": header.get("supplier_contact_person", ""),
+        "ZDELIVERY_TOLERANCE_P": header.get("delivery_tolerance_positive_pct"),
+        "ZDELIVERY_TOLERANCE_N": header.get("delivery_tolerance_negative_pct"),
+        "ZINCOTERMS_TEXT": header.get("delivery_terms", ""),
+        "ZINCOTERMS_LOC_TEXT": "",
+        "ZPAYMENT_TERM_TEXT": header.get("payment_terms", ""),
+        "ZSHIPMENT_MODE_TEXT": header.get("shipment_mode", ""),
+        "NETWR": header.get("total_amount"),
+        "WAERK": header.get("currency", ""),
+        "ZORDERS_REQ_REMARK": notes_cleanup(header.get("blanket_order_note")),
+        "ZOVERLOADING_REQ": notes_cleanup(header.get("delivery_tolerance_raw")),
+        "ZPACKING_REQ": notes_cleanup(header.get("packaging_note")),
+        "ZORDERS_REMARK": notes_cleanup(header.get("production_note")),
+        "ZFILE_NAME": parse_result.get("source_file", ""),
+    }
+
+    delivery_date_raw = ""
+    sap_items = []
+    for item in items:
+        delivery_date_raw = item.get("delivery_date", "")
+        zcust_delivery_date = delivery_date_raw.replace("-", "") if delivery_date_raw else ""
+
+        sap_items.append({
+            "GUID": guid,
+            "BSTNK": header.get("po_number", ""),
+            "ZITEM_NUM": str(item.get("line_no", "")),
+            "MAKTX": str(item.get("material_description", "")),
+            "ZCUST_MAT_NUM": str(item.get("material_description", "")),
+            "ZCUST_MAT_DESC": "",
+            "ZENDCUST_MAT_NUM": str(item.get("customer_material", "")),
+            "ZENDCUST_MAT_DESC": "",
+            "KWMENG": item.get("qty"),
+            "VRKME": item.get("unit", ""),
+            "ZINT_PO_NUM": str(item.get("customer_release_no", "")),
+            "ZCUSTOMER_DELIVERY_DATE": zcust_delivery_date,
+            "ZPRICE_QTY": item.get("price_basis_qty"),
+            "ZPRICE_UNIT": item.get("price_basis_unit", ""),
+            "ZPRICE_AMOUNT": item.get("unit_price"),
+            "ZPRICE_WAERK": item.get("currency", ""),
+            "NETWR": item.get("amount"),
+            "WAERK": item.get("currency", ""),
+        })
+
+    sap_header["ZCUST_REQ_ITEM"] = sap_items
+    return sap_header
+
+
+def _build_soap_xml(sap_input: dict) -> str:
+    now = datetime.utcnow()
+    rdate = now.strftime("%Y%m%d")
+    rtime = now.strftime("%H%M%S")
+    guid = sap_input.get("GUID", "")
+
+    i_input_json = json.dumps(sap_input, ensure_ascii=False, indent=2)
+
+    soap = f"""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:sap-com:document:sap:rfc:functions">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <urn:Z_FMBC_IF_INBOUND>
+         <I_DATA_GD>
+            <GUID>{guid}</GUID>
+            <BUTYPE>SD0026</BUTYPE>
+            <SYSID>n8n</SYSID>
+            <HOST>n8n</HOST>
+            <IPADDR>n8n</IPADDR>
+            <USERID>n8n</USERID>
+            <UNAME>n8n</UNAME>
+            <RDATE>{rdate}</RDATE>
+            <RTIME>{rtime}</RTIME>
+         </I_DATA_GD>
+         <I_INPUT>{i_input_json}
+         </I_INPUT>
+      </urn:Z_FMBC_IF_INBOUND>
+   </soapenv:Body>
+</soapenv:Envelope>"""
+    return soap
+
+
+def _parse_sap_response(soap_response_text: str) -> dict:
+    match = re.search(r"<E_OUTPUT>([^<]+)</E_OUTPUT>", soap_response_text)
+    if not match:
+        return {
+            "success": False,
+            "type": "E",
+            "message": "E_OUTPUT not found in SOAP response",
+            "raw": soap_response_text[:500],
+        }
+    try:
+        e_output_raw = json.loads(match.group(1))
+        e_output = e_output_raw[0] if isinstance(e_output_raw, list) else e_output_raw
+        return {
+            "success": e_output.get("TYPE") == "S",
+            "type": e_output.get("TYPE", ""),
+            "message": e_output.get("MESSAGE", ""),
+            "error": e_output.get("MESSAGE") if e_output.get("TYPE") != "S" else None,
+        }
+    except json.JSONDecodeError as e:
+        return {
+            "success": False,
+            "type": "E",
+            "message": f"Failed to parse E_OUTPUT: {e}",
+            "raw": match.group(1),
+        }
+
+
+@app.post("/to-sap")
+async def send_to_sap(request: ToSapRequest):
+    """将解析结果转换并发送到 SAP"""
+
+    if not SAP_USER or not SAP_PASS:
+        raise HTTPException(
+            status_code=500,
+            detail="SAP credentials not configured (SAP_USER / SAP_PASS env vars)",
+        )
+
+    sap_input = _build_sap_input(request.parse_result)
+    soap_xml = _build_soap_xml(sap_input)
+
+    try:
+        resp = requests.post(
+            SAP_URL,
+            data=soap_xml.encode("utf-8"),
+            headers={"Content-Type": "text/xml; charset=utf-8"},
+            auth=(SAP_USER, SAP_PASS),
+            timeout=60,
+        )
+        resp.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"SAP request failed: {str(e)}",
+        )
+
+    result = _parse_sap_response(resp.text)
+    return {
+        "sap_status": result,
+        "guid": sap_input.get("GUID"),
+        "bstnk": sap_input.get("BSTNK"),
     }
 
 
