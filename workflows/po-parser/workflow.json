@@ -80,7 +80,7 @@
     {
       "parameters": {
         "conditions": {
-          "combinator": "and",
+          "combinator": "or",
           "conditions": [
             {
               "leftValue": "={{ $json.status }}",
@@ -93,7 +93,7 @@
               "operator": { "type": "string", "operation": "equals" }
             }
           ],
-          "options": { "combinator": "or", "caseSensitive": true, "version": 2 }
+          "options": { "caseSensitive": true, "version": 2 }
         }
       },
       "id": "check-can-sap",
