@@ -35,21 +35,15 @@
     {
       "parameters": {
         "conditions": {
+          "combinator": "and",
           "conditions": [
             {
               "leftValue": "={{ $json.count }}",
               "rightValue": 0,
-              "operator": {
-                "type": "number",
-                "operation": "gt"
-              }
+              "operator": { "type": "number", "operation": "gt" }
             }
           ],
-          "combinator": "and",
-          "options": {
-            "caseSensitive": true,
-            "version": 2
-          }
+          "options": { "caseSensitive": true, "version": 2 }
         }
       },
       "id": "has-files",
@@ -89,29 +83,39 @@
           "combinator": "and",
           "conditions": [
             {
-              "id": "b32c07b3-479f-4e61-bf61-48c90e959a97",
               "leftValue": "={{ $json.status }}",
               "rightValue": "success",
-              "operator": {
-                "type": "string",
-                "operation": "equals",
-                "singleValue": true
-              }
+              "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "review",
+              "operator": { "type": "string", "operation": "equals" }
             }
           ],
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          }
+          "options": { "combinator": "or", "caseSensitive": true, "version": 2 }
         }
       },
-      "id": "check-success",
-      "name": "成功?",
+      "id": "check-can-sap",
+      "name": "需要发SAP?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1200, 100]
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.142.1.135:8765/to-sap",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ parse_result: $node['解析PDF'].json }) }}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "send-sap",
+      "name": "发送至SAP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 200]
     },
     {
       "parameters": {
@@ -119,29 +123,39 @@
           "combinator": "and",
           "conditions": [
             {
-              "id": "a18d018b-ea8f-4b9d-9c6b-d6b18a8e5b72",
-              "leftValue": "={{ $json.status }}",
-              "rightValue": "review",
-              "operator": {
-                "type": "string",
-                "operation": "equals",
-                "singleValue": true
-              }
+              "leftValue": "={{ $json.sap_status.type }}",
+              "rightValue": "S",
+              "operator": { "type": "string", "operation": "equals" }
             }
           ],
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          }
+          "options": { "caseSensitive": true, "version": 2 }
         }
       },
-      "id": "check-review",
-      "name": "需要复核?",
+      "id": "check-sap",
+      "name": "SAP写入成功?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1200, 250]
+      "position": [1600, 150]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $node['解析PDF'].json.status }}",
+              "rightValue": "success",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "options": { "caseSensitive": true, "version": 2 }
+        }
+      },
+      "id": "check-original-success",
+      "name": "原始解析成功?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1800, 50]
     },
     {
       "parameters": {
@@ -155,21 +169,7 @@
       "name": "移到done",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [1400, 50]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://10.142.1.135:8765/move",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ source: '/mnt/smb/po_pdfs/incoming/' + $node['解析PDF'].json.source_file, destination: '/mnt/smb/po_pdfs/error/' + $node['解析PDF'].json.source_file }) }}"
-      },
-      "id": "move-error",
-      "name": "移到error",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [1400, 350]
+      "position": [2000, 0]
     },
     {
       "parameters": {
@@ -183,184 +183,35 @@
       "name": "移到review",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [1400, 150]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://10.142.1.135:8765/to-sap",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ parse_result: $node['解析PDF'].json }) }}",
-        "options": {
-          "timeout": 60000
-        }
-      },
-      "id": "send-sap",
-      "name": "发送至SAP",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [1600, 150]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "c45d12e0-f3a9-4b8d-9e7a-f8b29c7d6e41",
-              "leftValue": "={{ $json.sap_status.type }}",
-              "rightValue": "S",
-              "operator": {
-                "type": "string",
-                "operation": "equals",
-                "singleValue": true
-              }
-            }
-          ],
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          }
-        }
-      },
-      "id": "check-sap",
-      "name": "SAP写入成功?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [1800, 150]
-    },
-    {
-      "parameters": {
-        "mode": "manual",
-        "duplicateItem": false,
-        "assignments": {
-          "assignments": [
-            {
-              "id": "status",
-              "name": "status",
-              "value": "review",
-              "type": "string"
-            },
-            {
-              "id": "source_file",
-              "name": "source_file",
-              "value": "={{ $node['解析PDF'].json.source_file }}",
-              "type": "string"
-            },
-            {
-              "id": "po_number",
-              "name": "po_number",
-              "value": "={{ $node['解析PDF'].json.header.po_number }}",
-              "type": "string"
-            },
-            {
-              "id": "customer_name",
-              "name": "customer_name",
-              "value": "={{ $node['解析PDF'].json.header.customer_name }}",
-              "type": "string"
-            },
-            {
-              "id": "warnings",
-              "name": "warnings",
-              "value": "={{ $node['解析PDF'].json.warnings }}",
-              "type": "array"
-            },
-            {
-              "id": "output_file",
-              "name": "output_file",
-              "value": "={{ $node['解析PDF'].json.output_file }}",
-              "type": "string"
-            },
-            {
-              "id": "sap_status",
-              "name": "sap_status",
-              "value": "={{ $json.sap_status.message }}",
-              "type": "string"
-            },
-            {
-              "id": "sap_guid",
-              "name": "sap_guid",
-              "value": "={{ $json.guid }}",
-              "type": "string"
-            }
-          ]
-        },
-        "includeOtherFields": false,
-        "options": {}
-      },
-      "id": "output-review-ok",
-      "name": "输出结果-复核(SAP成功)",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
       "position": [2000, 100]
     },
     {
       "parameters": {
-        "mode": "manual",
-        "duplicateItem": false,
-        "assignments": {
-          "assignments": [
-            {
-              "id": "status",
-              "name": "status",
-              "value": "review",
-              "type": "string"
-            },
-            {
-              "id": "source_file",
-              "name": "source_file",
-              "value": "={{ $node['解析PDF'].json.source_file }}",
-              "type": "string"
-            },
-            {
-              "id": "po_number",
-              "name": "po_number",
-              "value": "={{ $node['解析PDF'].json.header.po_number }}",
-              "type": "string"
-            },
-            {
-              "id": "customer_name",
-              "name": "customer_name",
-              "value": "={{ $node['解析PDF'].json.header.customer_name }}",
-              "type": "string"
-            },
-            {
-              "id": "warnings",
-              "name": "warnings",
-              "value": "={{ $node['解析PDF'].json.warnings }}",
-              "type": "array"
-            },
-            {
-              "id": "output_file",
-              "name": "output_file",
-              "value": "={{ $node['解析PDF'].json.output_file }}",
-              "type": "string"
-            },
-            {
-              "id": "sap_error",
-              "name": "sap_error",
-              "value": "={{ $json.sap_status.error }}",
-              "type": "string"
-            },
-            {
-              "id": "sap_guid",
-              "name": "sap_guid",
-              "value": "={{ $json.guid }}",
-              "type": "string"
-            }
-          ]
-        },
-        "includeOtherFields": false,
-        "options": {}
+        "method": "POST",
+        "url": "http://10.142.1.135:8765/move",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source: '/mnt/smb/po_pdfs/incoming/' + $node['解析PDF'].json.source_file, destination: '/mnt/smb/po_pdfs/error/' + $node['解析PDF'].json.source_file }) }}"
       },
-      "id": "output-review-err",
-      "name": "输出结果-复核(SAP失败)",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [2000, 200]
+      "id": "move-error-sap",
+      "name": "移到error(SAP失败)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.142.1.135:8765/move",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source: '/mnt/smb/po_pdfs/incoming/' + $node['解析PDF'].json.source_file, destination: '/mnt/smb/po_pdfs/error/' + $node['解析PDF'].json.source_file }) }}"
+      },
+      "id": "move-error-parse",
+      "name": "移到error(解析失败)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 400]
     },
     {
       "parameters": {
@@ -369,70 +220,56 @@
         "assignments": {
           "assignments": [
             {
-              "id": "status",
-              "name": "status",
-              "value": "={{ $(\"解析PDF\").item.json.status }}",
-              "type": "string"
+              "id": "status", "name": "status", "type": "string",
+              "value": "={{ $node['解析PDF'].json.status }}"
             },
             {
-              "id": "source_file",
-              "name": "source_file",
-              "value": "={{ $(\"解析PDF\").item.json.source_file }}",
-              "type": "string"
+              "id": "source_file", "name": "source_file", "type": "string",
+              "value": "={{ $node['解析PDF'].json.source_file }}"
             },
             {
-              "id": "po_number",
-              "name": "po_number",
-              "value": "={{ $(\"解析PDF\").item.json.header.po_number }}",
-              "type": "string"
+              "id": "po_number", "name": "po_number", "type": "string",
+              "value": "={{ $node['解析PDF'].json.header.po_number }}"
             },
             {
-              "id": "customer_name",
-              "name": "customer_name",
-              "value": "={{ $(\"解析PDF\").item.json.header.customer_name }}",
-              "type": "string"
+              "id": "customer_name", "name": "customer_name", "type": "string",
+              "value": "={{ $node['解析PDF'].json.header.customer_name }}"
             },
             {
-              "id": "po_date",
-              "name": "po_date",
-              "value": "={{ $(\"解析PDF\").item.json.header.po_date }}",
-              "type": "string"
+              "id": "po_date", "name": "po_date", "type": "string",
+              "value": "={{ $node['解析PDF'].json.header.po_date }}"
             },
             {
-              "id": "currency",
-              "name": "currency",
-              "value": "={{ $(\"解析PDF\").item.json.header.currency }}",
-              "type": "string"
+              "id": "currency", "name": "currency", "type": "string",
+              "value": "={{ $node['解析PDF'].json.header.currency }}"
             },
             {
-              "id": "total_amount",
-              "name": "total_amount",
-              "value": "={{ $(\"解析PDF\").item.json.header.total_amount }}",
-              "type": "number"
+              "id": "total_amount", "name": "total_amount", "type": "number",
+              "value": "={{ $node['解析PDF'].json.header.total_amount }}"
             },
             {
-              "id": "items",
-              "name": "items",
-              "value": "={{ $(\"解析PDF\").item.json.items }}",
-              "type": "object"
+              "id": "items", "name": "items", "type": "object",
+              "value": "={{ $node['解析PDF'].json.items }}"
             },
             {
-              "id": "confidence",
-              "name": "confidence",
-              "value": "={{ $(\"解析PDF\").item.json.confidence }}",
-              "type": "number"
+              "id": "confidence", "name": "confidence", "type": "number",
+              "value": "={{ $node['解析PDF'].json.confidence }}"
             },
             {
-              "id": "warnings",
-              "name": "warnings",
-              "value": "={{ $(\"解析PDF\").item.json.warnings }}",
-              "type": "array"
+              "id": "warnings", "name": "warnings", "type": "array",
+              "value": "={{ $node['解析PDF'].json.warnings }}"
             },
             {
-              "id": "output_file",
-              "name": "output_file",
-              "value": "={{ $(\"解析PDF\").item.json.output_file }}",
-              "type": "string"
+              "id": "output_file", "name": "output_file", "type": "string",
+              "value": "={{ $node['解析PDF'].json.output_file }}"
+            },
+            {
+              "id": "sap_message", "name": "sap_message", "type": "string",
+              "value": "={{ $json.sap_status.message }}"
+            },
+            {
+              "id": "sap_guid", "name": "sap_guid", "type": "string",
+              "value": "={{ $json.guid }}"
             }
           ]
         },
@@ -443,7 +280,7 @@
       "name": "输出结果-成功",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1600, 50]
+      "position": [2200, 0]
     },
     {
       "parameters": {
@@ -452,102 +289,136 @@
         "assignments": {
           "assignments": [
             {
-              "id": "status",
-              "name": "status",
-              "value": "error",
-              "type": "string"
+              "id": "status", "name": "status", "type": "string",
+              "value": "review"
             },
             {
-              "id": "source_file",
-              "name": "source_file",
-              "value": "={{ $(\"解析PDF\").item.json.source_file }}",
-              "type": "string"
+              "id": "source_file", "name": "source_file", "type": "string",
+              "value": "={{ $node['解析PDF'].json.source_file }}"
             },
             {
-              "id": "error_reason",
-              "name": "error_reason",
-              "value": "={{ $(\"解析PDF\").item.json.warnings }}",
-              "type": "array"
+              "id": "po_number", "name": "po_number", "type": "string",
+              "value": "={{ $node['解析PDF'].json.header.po_number }}"
+            },
+            {
+              "id": "customer_name", "name": "customer_name", "type": "string",
+              "value": "={{ $node['解析PDF'].json.header.customer_name }}"
+            },
+            {
+              "id": "warnings", "name": "warnings", "type": "array",
+              "value": "={{ $node['解析PDF'].json.warnings }}"
+            },
+            {
+              "id": "output_file", "name": "output_file", "type": "string",
+              "value": "={{ $node['解析PDF'].json.output_file }}"
+            },
+            {
+              "id": "sap_message", "name": "sap_message", "type": "string",
+              "value": "={{ $json.sap_status.message }}"
+            },
+            {
+              "id": "sap_guid", "name": "sap_guid", "type": "string",
+              "value": "={{ $json.guid }}"
             }
           ]
         },
         "includeOtherFields": false,
         "options": {}
       },
-      "id": "output-error",
-      "name": "输出结果-失败",
+      "id": "output-review",
+      "name": "输出结果-复核",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1600, 350]
+      "position": [2200, 100]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status", "name": "status", "type": "string",
+              "value": "error"
+            },
+            {
+              "id": "source_file", "name": "source_file", "type": "string",
+              "value": "={{ $node['解析PDF'].json.source_file }}"
+            },
+            {
+              "id": "error_reason", "name": "error_reason", "type": "string",
+              "value": "={{ $json.sap_status.message || $json.sap_status.error || 'SAP写入失败' }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "output-error-sap",
+      "name": "输出结果-失败(SAP)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2200, 300]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status", "name": "status", "type": "string",
+              "value": "error"
+            },
+            {
+              "id": "source_file", "name": "source_file", "type": "string",
+              "value": "={{ $node['解析PDF'].json.source_file }}"
+            },
+            {
+              "id": "error_reason", "name": "error_reason", "type": "string",
+              "value": "={{ $node['解析PDF'].json.status + ': ' + ($node['解析PDF'].json.warnings || []).join('; ') }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "output-error-parse",
+      "name": "输出结果-失败(解析)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1600, 400]
     }
   ],
   "connections": {
-    "定时触发": {
-      "main": [[
-        { "node": "扫描目录", "type": "main", "index": 0 }
-      ]]
+    "定时触发": { "main": [[ { "node": "扫描目录", "type": "main", "index": 0 } ]] },
+    "扫描目录": { "main": [[ { "node": "有文件?", "type": "main", "index": 0 } ]] },
+    "有文件?": { "main": [[ { "node": "拆分文件", "type": "main", "index": 0 } ], []] },
+    "拆分文件": { "main": [[ { "node": "解析PDF", "type": "main", "index": 0 } ]] },
+    "解析PDF": { "main": [[ { "node": "需要发SAP?", "type": "main", "index": 0 } ]] },
+    "需要发SAP?": {
+      "main": [
+        [{ "node": "发送至SAP", "type": "main", "index": 0 }],
+        [{ "node": "移到error(解析失败)", "type": "main", "index": 0 }]
+      ]
     },
-    "扫描目录": {
-      "main": [[
-        { "node": "有文件?", "type": "main", "index": 0 }
-      ]]
-    },
-    "有文件?": {
-      "main": [[
-        { "node": "拆分文件", "type": "main", "index": 0 }
-      ], []]
-    },
-    "拆分文件": {
-      "main": [[
-        { "node": "解析PDF", "type": "main", "index": 0 }
-      ]]
-    },
-    "解析PDF": {
-      "main": [[
-        { "node": "成功?", "type": "main", "index": 0 }
-      ]]
-    },
-    "成功?": {
-      "main": [[
-        { "node": "移到done", "type": "main", "index": 0 }
-      ], [
-        { "node": "需要复核?", "type": "main", "index": 0 }
-      ]]
-    },
-    "需要复核?": {
-      "main": [[
-        { "node": "移到review", "type": "main", "index": 0 }
-      ], [
-        { "node": "移到error", "type": "main", "index": 0 }
-      ]]
-    },
-    "移到done": {
-      "main": [[
-        { "node": "输出结果-成功", "type": "main", "index": 0 }
-      ]]
-    },
-    "移到error": {
-      "main": [[
-        { "node": "输出结果-失败", "type": "main", "index": 0 }
-      ]]
-    },
-    "移到review": {
-      "main": [[
-        { "node": "发送至SAP", "type": "main", "index": 0 }
-      ]]
-    },
-    "发送至SAP": {
-      "main": [[
-        { "node": "SAP写入成功?", "type": "main", "index": 0 }
-      ]]
-    },
+    "发送至SAP": { "main": [[ { "node": "SAP写入成功?", "type": "main", "index": 0 } ]] },
     "SAP写入成功?": {
-      "main": [[
-        { "node": "输出结果-复核(SAP成功)", "type": "main", "index": 0 }
-      ], [
-        { "node": "输出结果-复核(SAP失败)", "type": "main", "index": 0 }
-      ]]
-    }
+      "main": [
+        [{ "node": "原始解析成功?", "type": "main", "index": 0 }],
+        [{ "node": "移到error(SAP失败)", "type": "main", "index": 0 }]
+      ]
+    },
+    "原始解析成功?": {
+      "main": [
+        [{ "node": "移到done", "type": "main", "index": 0 }],
+        [{ "node": "移到review", "type": "main", "index": 0 }]
+      ]
+    },
+    "移到done": { "main": [[ { "node": "输出结果-成功", "type": "main", "index": 0 } ]] },
+    "移到review": { "main": [[ { "node": "输出结果-复核", "type": "main", "index": 0 } ]] },
+    "移到error(SAP失败)": { "main": [[ { "node": "输出结果-失败(SAP)", "type": "main", "index": 0 } ]] },
+    "移到error(解析失败)": { "main": [[ { "node": "输出结果-失败(解析)", "type": "main", "index": 0 } ]] }
   },
   "settings": {
     "executionOrder": "v1"
