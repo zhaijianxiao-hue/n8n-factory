@@ -13,7 +13,7 @@
 | 主题 | 目录 | 说明 |
 |------|------|------|
 | 飞书多维表格 | `topics/feishu/` | Token、API、权限、踩坑 |
-| SAP RFC | `topics/sap/` | BAPI 调用（待建） |
+| SAP SOAP RFC | `topics/sap/` | SOAP XML、GUID、认证、响应解析 |
 
 ### 产品知识
 
@@ -22,6 +22,13 @@
 | po-parser | `workflows/po-parser/` | 8765 | PO PDF 解析服务 |
 | metal-price-sync | `workflows/metal-price-sync/` | 8766 | 金属价格同步服务 |
 | old-erp-sync | `workflows/old-erp-sync/` | - | 老 ERP → 飞书流程 |
+
+### 通用服务
+
+| 服务 | 目录 | 端口 | 说明 |
+|------|------|------|------|
+| hana-query-api | `services/hana-query-api/` | 8766 | SAP HANA SQL → JSON 查询 API |
+| po-parser /check-email | `workflows/po-parser/service/` | 8765 | Exchange EWS → 下载 PDF 到 incoming |
 
 ### 踩坑记录
 
@@ -179,6 +186,66 @@ n8n 在 Docker，调用同机服务：
 字段类型必须匹配：
 - 数组 → `type: "array"`
 - 对象 → `type: "object"`
+
+---
+
+## HANA Query API
+
+通用 SAP HANA SQL 查询服务，传入 SQL 返回 JSON。任何程序/agent 均可调用。
+
+### 端点
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/health` | GET | 健康检查（含 HANA 连通性） |
+| `/query` | POST | 执行 SQL，返回 JSON |
+
+### 调用方式
+
+```
+POST http://10.142.1.135:8766/query
+Content-Type: application/json
+
+{"sql": "SELECT * FROM SAPHANADB.\"MARA\" LIMIT 10"}
+```
+
+### 响应格式
+
+```json
+{
+  "data": [{"MATNR": "...", "MAKTX": "..."}],
+  "total": 10,
+  "columns": ["MATNR", "MAKTX"]
+}
+```
+
+### 配置
+
+环境变量（`/opt/hana-query-api/.env`）：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| HANA_HOST | 10.142.1.38 | HANA 地址 |
+| HANA_PORT | 30041 | HANA 端口 |
+| HANA_DATABASE | S4P | 租户数据库 |
+| HANA_USER | FR_USER | 用户名 |
+| HANA_PASSWORD | - | 密码 |
+| HANA_MAX_ROWS | 10000 | 最大返回行数 |
+| HANA_QUERY_TIMEOUT | 60 | 查询超时秒数 |
+| HANA_API_PORT | 8766 | API 服务端口 |
+
+### 技术栈
+
+- FastAPI + uvicorn
+- hdbcli（SAP 官方 Python 驱动）
+- systemd 服务：`hana-query-api.service`
+
+### n8n 集成
+
+在 n8n 中用 **HTTP Request** 节点：
+- Method: POST
+- URL: `http://10.142.1.135:8766/query`
+- Body: `{"sql": "{{ 你的SQL语句 }}"}`
 
 ---
 

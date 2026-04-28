@@ -1,0 +1,25 @@
+[Unit]
+Description=PO Parser Service - 采购订单PDF解析服务
+After=network.target
+
+[Service]
+Type=simple
+User=prd-n8n
+WorkingDirectory=/opt/po-parser
+Environment=OLLAMA_URL=http://10.142.1.112:11434/v1
+Environment=OLLAMA_MODEL=qwen3.5:27b
+Environment=SAP_USER=ZHAIYANAN
+Environment=SAP_PASS=Zzhai1984!
+Environment=EXCHANGE_SERVER=mail.tcl.com
+Environment=EXCHANGE_EMAIL=zhaiyanan@tianjin-pcb.com
+Environment=EXCHANGE_USERNAME=yanan1.zhai@tcl.com
+Environment=EXCHANGE_PASSWORD=<SET_IN_PRODUCTION>
+Environment=EXCHANGE_INCOMING_DIR=/mnt/smb/po_pdfs/incoming
+ExecStart=/usr/bin/python3 /opt/po-parser/po_parser_service.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -30,6 +30,12 @@ SAP_URL = os.getenv(
 SAP_USER = os.getenv("SAP_USER", "")
 SAP_PASS = os.getenv("SAP_PASS", "")
 
+EXCHANGE_SERVER = os.getenv("EXCHANGE_SERVER", "mail.tcl.com")
+EXCHANGE_EMAIL = os.getenv("EXCHANGE_EMAIL", "")
+EXCHANGE_USERNAME = os.getenv("EXCHANGE_USERNAME", "")
+EXCHANGE_PASSWORD = os.getenv("EXCHANGE_PASSWORD", "")
+EXCHANGE_INCOMING_DIR = os.getenv("EXCHANGE_INCOMING_DIR", "/mnt/smb/po_pdfs/incoming")
+
 
 class POHeader(BaseModel):
     customer_name: Optional[str] = None
@@ -103,6 +109,17 @@ class ScanRequest(BaseModel):
 class MoveRequest(BaseModel):
     source: str
     destination: str
+
+
+class CheckEmailRequest(BaseModel):
+    incoming_dir: Optional[str] = None
+    exchange_email: Optional[str] = None
+    exchange_username: Optional[str] = None
+    exchange_password: Optional[str] = None
+    exchange_server: Optional[str] = None
+    max_emails: int = 10
+    unread_only: bool = True
+    days_back: int = 1
 
 
 def normalize_whitespace(value: str) -> str:
@@ -515,6 +532,99 @@ async def move_file(request: MoveRequest):
         "source": request.source,
         "destination": request.destination,
         "status": "moved",
+    }
+
+
+@app.post("/check-email")
+async def check_email(request: CheckEmailRequest):
+    """检查 Exchange 邮箱，下载 PDF 附件到 incoming 目录"""
+
+    incoming_dir = request.incoming_dir or EXCHANGE_INCOMING_DIR
+    exchange_server = request.exchange_server or EXCHANGE_SERVER
+    exchange_email = request.exchange_email or EXCHANGE_EMAIL
+    exchange_username = request.exchange_username or EXCHANGE_USERNAME
+    exchange_password = request.exchange_password or EXCHANGE_PASSWORD
+
+    if not exchange_email or not exchange_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Exchange credentials not configured (EXCHANGE_EMAIL / EXCHANGE_PASSWORD env vars or request params)",
+        )
+
+    os.makedirs(incoming_dir, exist_ok=True)
+
+    try:
+        import exchangelib as ewl
+    except ImportError:
+        raise HTTPException(
+            status_code=500,
+            detail="exchangelib not installed. Install with: pip install exchangelib",
+        )
+
+    try:
+        creds = ewl.Credentials(
+            username=exchange_username or exchange_email,
+            password=exchange_password,
+        )
+        config = ewl.Configuration(server=exchange_server, credentials=creds)
+        account = ewl.Account(
+            primary_smtp_address=exchange_email,
+            config=config,
+            autodiscover=False,
+            access_type=ewl.DELEGATE,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to connect to Exchange: {str(e)}",
+        )
+
+    from datetime import timedelta, timezone
+    since = ewl.EWSDateTime.now(tz=ewl.EWSTimeZone.timezone("UTC")) - timedelta(days=request.days_back)
+
+    filter_kwargs = {}
+    filter_kwargs["datetime_received__gte"] = since
+
+    try:
+        items = list(
+            account.inbox.filter(**filter_kwargs).order_by("-datetime_received")[:request.max_emails]
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to search inbox: {str(e)}",
+        )
+
+    downloaded = []
+    skipped = 0
+    for item in items:
+        for attachment in item.attachments:
+            if not attachment.name or not attachment.name.lower().endswith(".pdf"):
+                continue
+            dest_path = os.path.join(incoming_dir, attachment.name)
+            if os.path.exists(dest_path):
+                skipped += 1
+                continue
+            try:
+                with open(dest_path, "wb") as f:
+                    f.write(attachment.content)
+                downloaded.append(attachment.name)
+            except Exception:
+                skipped += 1
+
+        if request.unread_only:
+            try:
+                item.is_read = True
+                item.save(update_fields=["is_read"])
+            except Exception:
+                pass
+
+    return {
+        "incoming_dir": incoming_dir,
+        "emails_checked": len(items),
+        "downloaded": len(downloaded),
+        "skipped": skipped,
+        "files": downloaded,
     }
 
 

@@ -148,6 +148,17 @@ Do not start by guessing from old docs or only reading `workflow.json`. The pars
   - `/mnt/smb/po_pdfs/error`
   - `/mnt/smb/po_pdfs/output`
 
+- Current Exchange/EWS configuration:
+  - Server: `mail.tcl.com` (resolves to `10.74.128.200`)
+  - Login username: `yanan1.zhai@tcl.com`
+  - Mailbox address (primary_smtp_address): `zhaiyanan@tianjin-pcb.com`
+  - Password: stored in `po-parser.service` env vars (not committed)
+  - EWS endpoint: `https://mail.tcl.com/EWS/Exchange.asmx`
+  - exchangelib version: `5.6.0`
+  - `/check-email` endpoint: `POST http://10.142.1.135:8765/check-email`
+  - Default params: `days_back=1`, `max_emails=10`
+  - Email PDF downloads to `/mnt/smb/po_pdfs/incoming`
+
 ## Current Production Targets
 
 - Current main workflow ID:

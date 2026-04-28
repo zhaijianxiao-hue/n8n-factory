@@ -57,6 +57,69 @@ Web 抓取开发流程：
 
 ---
 
+## 2026-04-17
+
+### 4. 服务代码与测试断言不同步
+
+**问题**: 服务代码已改成 SAP GUID 格式（32位大写无连字符），但测试仍断言旧 UUID 格式（36位带连字符），导致测试失败。
+
+**根因**: 
+- 修改服务代码时未同步更新测试文件
+- 测试与服务代码位于不同文件，容易遗漏
+- 只关注功能实现，忽略了测试契约
+
+**解决**:
+- 先跑失败测试确认根因（而非猜测）
+- 同步更新 `test_soap_body.py` 中的断言
+- 使用 edit 工具分两步精确修改（docstring + 正则）
+- 验证测试通过后再部署服务
+
+**预防规则**:
+```
+服务代码修改时必须同步检查测试：
+1. ✅ 修改服务代码后，立即 grep 相关测试文件
+2. ✅ 跑相关测试，观察失败原因
+3. ✅ 同步更新测试断言和说明
+4. ✅ 本地验证通过后再部署
+5. ❌ 不要只改服务，忽略测试同步
+
+测试驱动修改流程：
+- 发现不匹配 → 跑测试确认失败 → 定位根因 → 修改测试 → 验证通过 → 部署
+```
+
+**影响范围**: 所有服务端点修改，特别是涉及数据格式、字段定义、业务规则的改动。
+
+---
+
+### 5. 文件编辑工具选择问题
+
+**问题**: 使用 apply_patch 工具编辑文件时频繁报错 "JSON Parse error"，无法完成编辑。
+
+**根因**: 
+- apply_patch 工具参数格式在当前环境不稳定
+- 补丁内容中的特殊字符（中文、引号）可能导致解析失败
+- 大量重复调用浪费时间和 token
+
+**解决**: 改用 edit 工具，直接指定 oldString/newString 进行精确替换。
+
+**预防规则**:
+```
+文件编辑优先级：
+1. ✅ edit 工具（精确字符串替换，稳定可靠）
+2. ⚠️ apply_patch（仅在简单英文补丁时尝试）
+3. ❌ 避免重复调用失败的工具（浪费资源）
+
+edit 工具最佳实践：
+- 先 read 文件确认精确内容
+- oldString 必须完全匹配（包括缩进、空格）
+- 一次只改一小段，改完立即验证
+- 不要试图一次改多个不连续位置
+```
+
+**影响范围**: 所有文件编辑操作（Python、JSON、Markdown等）。
+
+---
+
 ## 2026-04-03
 
 ### 2. n8n If node V2 字段匹配问题
@@ -96,6 +159,56 @@ n8n Set node V3.4 字段类型：
 ```
 
 ---
+
+## 2026-04-24
+
+### 4. Exchange EWS 集成踩坑记录
+
+**问题**: 通过 `exchangelib` 连接自建 Exchange 邮箱时，遇到认证失败、查询超时、密码特殊字符转义等多个问题。
+
+**根因**: 
+1. 自建 Exchange 不支持 IMAP，也不支持 Microsoft Graph API（Graph 仅适用于 Exchange Online）
+2. exchangelib 默认 `autodiscover=True` 会尝试 DNS 自动发现，自建环境可能超时
+3. 大邮箱（1300+ 封邮件）上 `has_attachments=True` + `is_read=False` 组合过滤慢 >120s
+4. 密码中的 `!` 字符在 PowerShell 和 bash 中都会被解释为特殊字符
+
+**解决**:
+- 改用 EWS (exchangelib) 方案，`autodiscover=False`，手动指定服务器
+- 登录用户名和邮箱地址可能不同（`yanan1.zhai@tcl.com` vs `zhaiyanan@tianjin-pcb.com`）
+- 简化 EWS 过滤条件为仅按时间窗口 `datetime_received__gte`，附件检查和已读标记在客户端处理
+- 默认 `days_back=1`，`max_emails=10`，n8n timeout 设为 180s
+- 密码含特殊字符时，部署通过写入临时文件 + `scp` + `ssh sudo cp` 避免 shell 转义
+
+**预防规则**:
+```
+Exchange EWS 集成检查清单：
+1. ✅ 确认是 Exchange Online 还是自建 Exchange（自建不能用 Microsoft Graph）
+2. ✅ exchangelib 配置使用 autodiscover=False，手动指定服务器
+3. ✅ 确认 login username 与 mailbox address 可能不同
+4. ✅ EWS 查询优化：只用时间窗口过滤，避免 has_attachments + is_read 组合
+5. ✅ n8n HTTP Request 节点 timeout >= 120s（推荐 180s）
+6. ✅ 密码特殊字符通过文件 + scp 部署，避免 shell 转义
+7. ❌ 不要在自建 Exchange 上使用 IMAP 或 Outlook/Microsoft Graph 节点
+```
+
+**影响范围**: 自建 Exchange 环境下的邮件集成方案。
+
+### 5. n8n HTTP Request 节点超时设置
+
+**问题**: exchangelib 同步 I/O 查询大邮箱可能超过 n8n 默认 timeout（60s），导致 HTTP 请求被取消。
+
+**根因**: n8n HTTP Request 节点默认 timeout 只有 60 秒，而 EWS 查询大邮箱可能 >120s。
+
+**解决**: 在 n8n HTTP Request 节点设置 `options.timeout: 180000`（毫秒 = 180s）。
+
+**预防规则**:
+```
+n8n HTTP Request 调用慢服务的超时策略：
+1. ✅ 调用外部系统需评估实际耗时，保守设置 timeout
+2. 🎯 Exchange EWS: 推荐 180s
+3. 🎯 SAP RFC: 根据实际 SAP 响应时间调整
+4. ❌ 不要保留默认 60s 超时
+```
 
 ## 待登记模板
 
