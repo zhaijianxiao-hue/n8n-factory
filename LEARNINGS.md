@@ -210,6 +210,65 @@ n8n HTTP Request 调用慢服务的超时策略：
 4. ❌ 不要保留默认 60s 超时
 ```
 
+## 2026-04-29
+
+### 6. n8n API PUT workflow 的 settings 字段限制
+
+**问题**: 通过 n8n API 更新 workflow 时，`settings` 对象包含 `availableInMCP`、`binaryMode` 等字段导致 400 错误。
+
+**根因**: n8n API 的 PUT `/workflows/{id}` 端点对 `settings` 做了严格校验，只接受 `executionOrder` 和 `callerPolicy` 两个字段。工作流导出 JSON 中可能包含额外字段（`availableInMCP`、`binaryMode`），直接回传会被拒绝。
+
+**解决**: 构造 PUT payload 时，`settings` 只保留 `{"executionOrder": "v1", "callerPolicy": "workflowsFromSameOwner"}`，删除所有额外字段。
+
+**预防规则**:
+```
+n8n API PUT 更新 workflow 的 payload 规则：
+1. ✅ payload 只包含: name, nodes, connections, settings
+2. ✅ settings 只保留: executionOrder, callerPolicy
+3. ❌ 删除: availableInMCP, binaryMode, staticData, tags, pinData, meta
+4. ✅ 先在测试脚本中验证，再应用到生产
+```
+
+**影响范围**: 所有通过 API 编程方式更新 n8n workflow 的场景。
+
+### 7. Claude Code 新会话只自动加载 CLAUDE.md，不加载 AGENTS.md
+
+**问题**: 项目中有 AGENTS.md 包含重要上下文（Exchange 配置、n8n 端点、踩坑规则），但新会话不会自动读取。
+
+**根因**: Claude Code 默认只自动读取项目根目录的 `CLAUDE.md`（以及 `~/.claude/` 下的配置），不会自动加载 `AGENTS.md`。
+
+**解决**: 在 `CLAUDE.md` 顶部添加 `@include AGENTS.md`，确保所有项目上下文在新会话中自动加载。
+
+**预防规则**:
+```
+Claude Code 项目上下文文件优先级：
+1. ✅ CLAUDE.md — 自动加载（项目根目录）
+2. ✅ ~/.claude/rules/*.md — 自动加载（用户全局）
+3. ⚠️ AGENTS.md — 需要 @include 或手动读取
+4. ❌ 不要假设 AGENTS.md 会被自动加载
+```
+
+**影响范围**: 从 opencode 迁移到 Claude Code 的项目，或同时维护多个 AI 工具配置的项目。
+
+### 8. exchangelib 时区对象类型错误
+
+**问题**: 修复 `EWSTimeZone` 用法时，先改成 `datetime.timezone.utc`，线上仍报错 `InvalidTypeError: 'tzinfo' datetime.timezone.utc must be of type EWSTimeZone`。
+
+**根因**: exchangelib 的 `EWSDateTime.now()` 严格要求传入 `EWSTimeZone` 类型，不接受标准库 `datetime.timezone`。
+
+**解决**: 使用 `ewl.EWSTimeZone('UTC')` 创建时区对象。
+
+**预防规则**:
+```
+exchangelib 时区使用规范：
+1. ✅ ewl.EWSTimeZone('UTC') — 正确
+2. ❌ ewl.EWSTimeZone.timezone("UTC") — 方法不存在
+3. ❌ datetime.timezone.utc — 类型不匹配
+4. ⚠️ 本地语法检查通过 ≠ 线上 exchangelib 版本兼容
+```
+
+**影响范围**: 所有使用 exchangelib 处理 Exchange EWS 时间过滤的场景。
+
 ## 待登记模板
 
 发现新踩坑时，按以下格式添加：

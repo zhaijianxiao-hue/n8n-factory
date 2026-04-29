@@ -120,6 +120,59 @@ class CheckEmailRequest(BaseModel):
     max_emails: int = 10
     unread_only: bool = True
     days_back: int = 1
+    use_llm_filter: bool = False  # 是否使用 LLM 二次确认（暂不支持）
+
+
+# PO 邮件关键词规则（方案 C 初版 - 规则过滤）
+PO_KEYWORDS = {
+    "subject": [
+        # 英文
+        "purchase order", "po", "order", "ord", "po number", "order number",
+        "new order", "sales order", "customer order",
+        # 中文
+        "订单", "采购", "采购订单", "新订单", "客户订单",
+    ],
+    "sender_patterns": [
+        # 常见客户邮箱域名模式（可扩展）
+        # "@evytra.com", "@customer.com"
+    ]
+}
+
+# PO PDF 文件名模式（不区分大小写）
+PO_FILENAME_PATTERNS = [
+    re.compile(r"^order[\d\-_.]*\.pdf$", re.IGNORECASE),      # Order2261319.pdf, order-123.pdf
+    re.compile(r"^po[\d\-_.]*\.pdf$", re.IGNORECASE),          # PO123.pdf, po-456.pdf
+    re.compile(r"^[\d\-_.]*po[\d\-_.]*\.pdf$", re.IGNORECASE),  # 123PO.pdf
+    re.compile(r"purchase[\w\-_.]*\.pdf$", re.IGNORECASE),    # purchase_order.pdf
+    re.compile(r"^[a-z]+\d+\.pdf$", re.IGNORECASE),             # ABC123.pdf（常见订单号格式）
+]
+
+
+def is_po_email(item, attachment_name: str) -> tuple[bool, str]:
+    """
+    判断邮件是否是 PO 邮件（规则过滤）
+
+    Returns:
+        (是否通过, 原因说明)
+    """
+    # 1. 文件名模式匹配
+    for pattern in PO_FILENAME_PATTERNS:
+        if pattern.match(attachment_name):
+            return True, f"filename_pattern:{attachment_name}"
+
+    # 2. 邮件主题关键词检查
+    subject = (item.subject or "").lower()
+    for keyword in PO_KEYWORDS["subject"]:
+        if keyword in subject:
+            return True, f"subject_keyword:{keyword}"
+
+    # 3. TODO: 邮件正文检查（需要提取 body）
+    # body = item.body or item.text_body or ""
+    # for keyword in PO_KEYWORDS["body"]:
+    #     if keyword in body.lower():
+    #         return True, f"body_keyword:{keyword}"
+
+    return False, "no_po_indicators"
 
 
 def normalize_whitespace(value: str) -> str:
@@ -579,8 +632,8 @@ async def check_email(request: CheckEmailRequest):
             detail=f"Failed to connect to Exchange: {str(e)}",
         )
 
-    from datetime import timedelta, timezone
-    since = ewl.EWSDateTime.now(tz=ewl.EWSTimeZone.timezone("UTC")) - timedelta(days=request.days_back)
+    from datetime import timedelta
+    since = ewl.EWSDateTime.now(tz=ewl.EWSTimeZone('UTC')) - timedelta(days=request.days_back)
 
     filter_kwargs = {}
     filter_kwargs["datetime_received__gte"] = since
@@ -597,10 +650,24 @@ async def check_email(request: CheckEmailRequest):
 
     downloaded = []
     skipped = 0
+    ignored = []  # 记录被过滤掉的邮件
+
     for item in items:
         for attachment in item.attachments:
             if not attachment.name or not attachment.name.lower().endswith(".pdf"):
                 continue
+
+            # 使用规则过滤：判断是否是 PO 邮件
+            is_po, reason = is_po_email(item, attachment.name)
+            if not is_po:
+                ignored.append({
+                    "attachment": attachment.name,
+                    "subject": item.subject,
+                    "sender": item.sender.email_address if item.sender else None,
+                    "reason": reason
+                })
+                continue
+
             dest_path = os.path.join(incoming_dir, attachment.name)
             if os.path.exists(dest_path):
                 skipped += 1
@@ -608,7 +675,12 @@ async def check_email(request: CheckEmailRequest):
             try:
                 with open(dest_path, "wb") as f:
                     f.write(attachment.content)
-                downloaded.append(attachment.name)
+                downloaded.append({
+                    "filename": attachment.name,
+                    "subject": item.subject,
+                    "sender": item.sender.email_address if item.sender else None,
+                    "matched_rule": reason
+                })
             except Exception:
                 skipped += 1
 
@@ -624,7 +696,10 @@ async def check_email(request: CheckEmailRequest):
         "emails_checked": len(items),
         "downloaded": len(downloaded),
         "skipped": skipped,
-        "files": downloaded,
+        "ignored": len(ignored),
+        "files": [d["filename"] for d in downloaded],
+        "download_details": downloaded,
+        "ignored_details": ignored[:5] if ignored else [],  # 只显示前5个被过滤的
     }
 
 
