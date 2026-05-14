@@ -212,3 +212,5 @@ def test_evaluate_command_writes_summary(tmp_path):
     assert summary_path.is_file()
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["publishable"] is True
+    assert summary["reports"][0]["schema_pass"] is True
+    assert "scores" in summary["reports"][0]

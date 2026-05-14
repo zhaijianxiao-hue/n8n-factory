@@ -116,16 +116,10 @@ def run_evaluate(lab_root: Path, customer_key: str, run_id: str) -> Path:
             expected=read_json(expected_path),
             actual=read_json(actual_path),
         )
+        report["sample_key"] = sample_key
+        report["report_path"] = f"{sample_key}.report.json"
         write_json(evaluation_dir / f"{sample_key}.report.json", report)
-        sample_reports.append(
-            {
-                "sample_key": sample_key,
-                "report_path": f"{sample_key}.report.json",
-                "publishable": report["publishable"],
-                "overall_score": report["overall_score"],
-                "blocking_errors": report["blocking_errors"],
-            }
-        )
+        sample_reports.append(report)
 
     publishable = bool(sample_reports) and all(report["publishable"] for report in sample_reports)
     summary = {
