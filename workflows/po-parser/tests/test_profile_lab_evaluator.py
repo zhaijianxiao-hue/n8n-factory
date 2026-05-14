@@ -214,3 +214,33 @@ def test_evaluate_command_writes_summary(tmp_path):
     assert summary["publishable"] is True
     assert summary["reports"][0]["schema_pass"] is True
     assert "scores" in summary["reports"][0]
+
+
+def test_evaluate_command_reports_missing_actual_draft(tmp_path):
+    root = tmp_path / "profile-lab"
+    init_customer(root=root, customer_key="acme", display_name="ACME Corp")
+    customer_dir = root / "customers" / "acme"
+    expected = {
+        "header": {"customer_name": "ACME", "po_number": "PO-1", "po_date": "2026-05-14"},
+        "items": [{"customer_material": "MAT-1", "qty": 2, "delivery_date": "2026-06-01"}],
+    }
+    write_json(customer_dir / "expected" / "po-001.json", expected)
+
+    exit_code = main([
+        "--lab-root",
+        str(root),
+        "evaluate",
+        "--customer",
+        "acme",
+        "--run-id",
+        "run-1",
+    ])
+
+    assert exit_code == 0
+    evaluation_dir = customer_dir / "runs" / "run-1" / "evaluation"
+    report_path = evaluation_dir / "po-001.report.json"
+    summary = json.loads((evaluation_dir / "summary.json").read_text(encoding="utf-8"))
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert summary["publishable"] is False
+    assert report_path.is_file()
+    assert report["blocking_errors"][0]["reason"] == "actual merged draft missing"

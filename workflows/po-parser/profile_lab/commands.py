@@ -100,6 +100,54 @@ def run_draft(
     return run.run_dir
 
 
+def build_missing_actual_report(sample_key: str, actual_path: Path) -> dict:
+    return {
+        "overall_score": 0.0,
+        "publishable": False,
+        "schema_pass": False,
+        "p0_pass": False,
+        "item_row_count_match": False,
+        "scores": {"header": 0.0, "items": 0.0, "p1": 0.0, "business_rules": 0.0},
+        "blocking_errors": [
+            {
+                "field": "actual",
+                "expected": str(actual_path),
+                "actual": None,
+                "reason": "actual merged draft missing",
+            }
+        ],
+        "recommendation": "not_publishable",
+        "sample_key": sample_key,
+        "report_path": f"{sample_key}.report.json",
+    }
+
+
+def format_evaluation_summary_markdown(
+    customer_key: str,
+    run_id: str,
+    sample_reports: list[dict],
+    publishable: bool,
+) -> str:
+    lines = [
+        f"# Evaluation Summary: {customer_key} / {run_id}",
+        "",
+        f"- Sample count: {len(sample_reports)}",
+        f"- Publishable: {publishable}",
+    ]
+    if not sample_reports:
+        lines.extend(["", "No expected files found."])
+    else:
+        lines.extend(["", "## Samples"])
+        for report in sample_reports:
+            sample_key = report["sample_key"]
+            report_publishable = report["publishable"]
+            line = f"- {sample_key}: publishable={report_publishable}"
+            if not report_publishable and report.get("blocking_errors"):
+                line += f" - {report['blocking_errors'][0]['reason']}"
+            lines.append(line)
+    return "\n".join(lines) + "\n"
+
+
 def run_evaluate(lab_root: Path, customer_key: str, run_id: str) -> Path:
     customer_dir = lab_root / "customers" / customer_key
     run_dir = customer_dir / "runs" / run_id
@@ -112,12 +160,15 @@ def run_evaluate(lab_root: Path, customer_key: str, run_id: str) -> Path:
     for expected_path in sorted(expected_dir.glob("*.json")):
         sample_key = expected_path.stem
         actual_path = adjudication_dir / f"{sample_key}.merged_draft.json"
-        report = evaluate_po_result(
-            expected=read_json(expected_path),
-            actual=read_json(actual_path),
-        )
-        report["sample_key"] = sample_key
-        report["report_path"] = f"{sample_key}.report.json"
+        if actual_path.exists():
+            report = evaluate_po_result(
+                expected=read_json(expected_path),
+                actual=read_json(actual_path),
+            )
+            report["sample_key"] = sample_key
+            report["report_path"] = f"{sample_key}.report.json"
+        else:
+            report = build_missing_actual_report(sample_key, actual_path)
         write_json(evaluation_dir / f"{sample_key}.report.json", report)
         sample_reports.append(report)
 
@@ -131,15 +182,12 @@ def run_evaluate(lab_root: Path, customer_key: str, run_id: str) -> Path:
     }
     write_json(evaluation_dir / "summary.json", summary)
     (evaluation_dir / "summary.md").write_text(
-        "\n".join(
-            [
-                f"# Evaluation Summary: {customer_key} / {run_id}",
-                "",
-                f"- Sample count: {len(sample_reports)}",
-                f"- Publishable: {publishable}",
-            ]
-        )
-        + "\n",
+        format_evaluation_summary_markdown(
+            customer_key=customer_key,
+            run_id=run_id,
+            sample_reports=sample_reports,
+            publishable=publishable,
+        ),
         encoding="utf-8",
     )
     return evaluation_dir
