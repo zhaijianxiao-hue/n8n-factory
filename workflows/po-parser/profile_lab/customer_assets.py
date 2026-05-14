@@ -108,6 +108,11 @@ def create_run(root: Path, customer_key: str, run_id: str) -> RunCreateResult:
     profile = read_json(customer_dir / "profile.json")
     sample_paths = list_sample_pdfs(customer_dir)
     run_dir = customer_dir / "runs" / run_id
+    if not sample_paths:
+        raise ValueError(f"no PDF samples found for customer: {customer_key}")
+    if run_dir.exists():
+        raise FileExistsError(f"run already exists: {run_dir}")
+
     inputs_dir = run_dir / "inputs"
     inputs_dir.mkdir(parents=True, exist_ok=True)
 

@@ -2,6 +2,8 @@ import importlib
 import json
 from pathlib import Path
 
+import pytest
+
 from profile_lab.customer_assets import create_run, init_customer
 from profile_lab.pdf_pages import sample_key_from_pdf
 
@@ -69,6 +71,26 @@ def test_create_run_copies_samples_and_writes_manifest(tmp_path):
     manifest = json.loads((run.run_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["customer"] == "acme"
     assert manifest["samples"] == ["po-001.pdf"]
+
+
+def test_create_run_raises_when_no_pdf_samples_exist(tmp_path):
+    root = tmp_path / "profile-lab"
+    init_customer(root=root, customer_key="acme", display_name="ACME Corp")
+
+    with pytest.raises(ValueError, match="no PDF samples found for customer: acme"):
+        create_run(root=root, customer_key="acme", run_id="2026-05-14-153000")
+
+
+def test_create_run_raises_when_run_id_already_exists(tmp_path):
+    root = tmp_path / "profile-lab"
+    init_customer(root=root, customer_key="acme", display_name="ACME Corp")
+    sample = root / "customers" / "acme" / "samples" / "po-001.pdf"
+    sample.write_bytes(b"%PDF-1.4\n")
+    run_dir = root / "customers" / "acme" / "runs" / "2026-05-14-153000"
+    run_dir.mkdir()
+
+    with pytest.raises(FileExistsError, match="run already exists: "):
+        create_run(root=root, customer_key="acme", run_id="2026-05-14-153000")
 
 
 def test_sample_key_from_pdf_removes_extension():

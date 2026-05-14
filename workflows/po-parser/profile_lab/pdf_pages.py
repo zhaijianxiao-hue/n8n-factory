@@ -1,13 +1,16 @@
 from pathlib import Path
 
-import fitz
-
 
 def sample_key_from_pdf(pdf_path: Path) -> str:
     return pdf_path.stem
 
 
 def render_pdf_pages(pdf_path: Path, output_dir: Path, zoom: float = 2.0) -> list[Path]:
+    try:
+        import fitz
+    except ImportError as exc:
+        raise RuntimeError("PyMuPDF is required to render PDF pages") from exc
+
     output_dir.mkdir(parents=True, exist_ok=True)
     document = fitz.open(pdf_path)
     rendered_paths: list[Path] = []
