@@ -4,6 +4,12 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+def dump_model(model: BaseModel) -> dict:
+    if hasattr(model, "model_dump"):
+        return model.model_dump()
+    return model.dict()
+
+
 class CustomerInitResult(BaseModel):
     customer_dir: Path
 

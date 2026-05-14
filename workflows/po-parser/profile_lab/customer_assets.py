@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from .json_io import write_json
-from .models import CustomerConfig, CustomerInitResult, ProfileConfig
+from .models import CustomerConfig, CustomerInitResult, ProfileConfig, dump_model
 
 
 DEFAULT_FIELD_PRIORITY = {
@@ -76,8 +76,8 @@ def init_customer(
     )
     profile = ProfileConfig(profile_name=customer_key)
 
-    write_json_if_missing(customer_dir / "customer.json", customer.model_dump())
-    write_json_if_missing(customer_dir / "profile.json", profile.model_dump())
+    write_json_if_missing(customer_dir / "customer.json", dump_model(customer))
+    write_json_if_missing(customer_dir / "profile.json", dump_model(profile))
     write_json_if_missing(customer_dir / "field_priority.json", DEFAULT_FIELD_PRIORITY)
     write_if_missing(customer_dir / "prompt.md", DEFAULT_PROMPT)
 
