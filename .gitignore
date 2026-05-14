@@ -42,6 +42,10 @@ temp/
 
 # Local git worktrees
 .worktrees/
+.claude/
+
+# Local brainstorming/mockup artifacts
+.superpowers/
 
 # Python cache
 __pycache__/
