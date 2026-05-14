@@ -1,9 +1,12 @@
 import json
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from profile_lab_ui.api import create_app
+from profile_lab_ui.artifacts import ArtifactNotFoundError
+from profile_lab_ui.artifacts import run_dir
 
 
 def write_json(path: Path, data: dict) -> None:
@@ -26,14 +29,17 @@ def create_run(root: Path) -> Path:
 def test_list_customers_and_runs(tmp_path):
     lab_root = tmp_path / "profile-lab"
     create_run(lab_root)
+    newer_run = lab_root / "customers" / "evytra" / "runs" / "run-2"
+    write_json(newer_run / "manifest.json", {"run_id": "run-2", "customer": "evytra", "samples": [], "created_at": "2026-05-15T18:30:00+08:00"})
+    write_json(newer_run / "evaluation" / "summary.json", {"publishable": True, "sample_count": 0, "reports": []})
     client = TestClient(create_app(lab_root=lab_root))
 
     customers = client.get("/api/customers").json()
     runs = client.get("/api/customers/evytra/runs").json()
 
-    assert customers == [{"customer_key": "evytra", "display_name": "EVYTRA GmbH", "run_count": 1}]
-    assert runs[0]["run_id"] == "run-1"
-    assert runs[0]["approval"]["state"] == "submitted"
+    assert customers == [{"customer_key": "evytra", "display_name": "EVYTRA GmbH", "run_count": 2}]
+    assert [run["run_id"] for run in runs] == ["run-2", "run-1"]
+    assert runs[1]["approval"]["state"] == "submitted"
 
 
 def test_get_run_returns_artifacts(tmp_path):
@@ -48,6 +54,7 @@ def test_get_run_returns_artifacts(tmp_path):
     assert payload["manifest"]["run_id"] == "run-1"
     assert payload["evaluation"]["publishable"] is True
     assert payload["samples"][0]["sample_key"] == "sample"
+    assert payload["samples"][0]["source_file"] == "sample.pdf"
     assert payload["samples"][0]["text_candidate"]["header"]["po_number"] == "PO-1"
 
 
@@ -57,3 +64,10 @@ def test_missing_run_returns_404(tmp_path):
     response = client.get("/api/customers/evytra/runs/missing")
 
     assert response.status_code == 404
+
+
+def test_run_dir_raises_for_missing_path(tmp_path):
+    lab_root = tmp_path / "profile-lab"
+
+    with pytest.raises(ArtifactNotFoundError):
+        run_dir(lab_root, "evytra", "missing")

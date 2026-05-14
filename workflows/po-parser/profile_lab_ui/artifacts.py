@@ -29,6 +29,29 @@ def dump_model(model: Any) -> dict[str, Any]:
     return model.dict()
 
 
+def customer_dir(lab_root: Path, customer: str) -> Path:
+    return Path(lab_root) / "customers" / customer
+
+
+def run_dir(lab_root: Path, customer: str, run_id: str) -> Path:
+    path = customer_dir(lab_root, customer) / "runs" / run_id
+    if not path.exists():
+        raise ArtifactNotFoundError(str(path))
+    return path
+
+
+def list_customers(lab_root: Path) -> list[dict[str, Any]]:
+    return ArtifactRepository(lab_root=lab_root).list_customers()
+
+
+def list_runs(lab_root: Path, customer: str) -> list[dict[str, Any]]:
+    return ArtifactRepository(lab_root=lab_root).list_runs(customer)
+
+
+def load_run(lab_root: Path, customer: str, run_id: str) -> dict[str, Any]:
+    return ArtifactRepository(lab_root=lab_root).get_run(customer, run_id)
+
+
 class ArtifactRepository:
     def __init__(self, lab_root: Path = DEFAULT_LAB_ROOT):
         self.lab_root = Path(lab_root)
@@ -70,12 +93,10 @@ class ArtifactRepository:
                     "approval": approval,
                 }
             )
-        return sorted(rows, key=lambda row: (row["created_at"] or "", row["run_id"]))
+        return sorted(rows, key=lambda row: (row["created_at"] or "", row["run_id"]), reverse=True)
 
     def get_run(self, customer: str, run_id: str) -> dict[str, Any]:
         run_dir = self._run_dir(customer, run_id)
-        if not run_dir.exists():
-            raise ArtifactNotFoundError(str(run_dir))
 
         manifest = read_json(run_dir / "manifest.json")
         evaluation = read_json(run_dir / "evaluation" / "summary.json", default={})
@@ -88,10 +109,10 @@ class ArtifactRepository:
         }
 
     def _customer_dir(self, customer: str) -> Path:
-        return self.lab_root / "customers" / customer
+        return customer_dir(self.lab_root, customer)
 
     def _run_dir(self, customer: str, run_id: str) -> Path:
-        return self._customer_dir(customer) / "runs" / run_id
+        return run_dir(self.lab_root, customer, run_id)
 
     def _run_dirs(self, customer: str) -> list[Path]:
         runs_dir = self._customer_dir(customer) / "runs"
@@ -106,6 +127,7 @@ class ArtifactRepository:
             samples.append(
                 {
                     "sample_key": sample_key,
+                    "source_file": sample,
                     "text_candidate": read_json(run_dir / "candidates" / "text" / f"{sample_key}.json", default={}),
                     "vision_candidate": read_json(run_dir / "candidates" / "vision" / f"{sample_key}.json", default={}),
                     "merged_draft": read_json(run_dir / "adjudication" / f"{sample_key}.merged_draft.json", default={}),
