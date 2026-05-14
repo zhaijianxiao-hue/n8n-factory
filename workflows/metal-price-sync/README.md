@@ -158,7 +158,7 @@ Python `/prices/soap-body` 端点生成 SOAP XML：
 
 | 字段 | 来源 | 说明 |
 |------|------|------|
-| GUID | uuid.uuid4() | 每次生成新 UUID |
+| GUID | uuid.uuid4().hex.upper() | 32位大写无连字符 |
 | BUTYPE | 固定 FI0056 | 业务类型 |
 | SYSID/HOST/IPADDR/USERID/UNAME | 固定 n8n | 系统标识 |
 | RDATE | datetime.now() | YYYYMMDD 格式 |

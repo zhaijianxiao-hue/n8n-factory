@@ -637,6 +637,8 @@ async def check_email(request: CheckEmailRequest):
 
     filter_kwargs = {}
     filter_kwargs["datetime_received__gte"] = since
+    if request.unread_only:
+        filter_kwargs["is_read"] = False
 
     try:
         items = list(
@@ -781,7 +783,7 @@ def _build_sap_input(parse_result: dict) -> dict:
 
 
 def _build_soap_xml(sap_input: dict) -> str:
-    now = datetime.utcnow()
+    now = datetime.now()
     rdate = now.strftime("%Y%m%d")
     rtime = now.strftime("%H%M%S")
     guid = sap_input.get("GUID", "")

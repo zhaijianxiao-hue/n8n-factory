@@ -269,6 +269,65 @@ exchangelib 时区使用规范：
 
 **影响范围**: 所有使用 exchangelib 处理 Exchange EWS 时间过滤的场景。
 
+### 9. unread_only 只标记已读，不等于只查询未读
+
+**问题**: `/check-email` 请求里传了 `unread_only=true`，但服务实际仍会查询最近时间窗口内的全部邮件（已读 + 未读），只是处理完成后再把邮件标记为已读。
+
+**根因**: `unread_only` 只用于处理后的 `item.is_read = True`，EWS 查询条件里没有同步加上 `is_read=False` 过滤。
+
+**解决**: 构造 `filter_kwargs` 时，在 `request.unread_only` 为 true 的情况下显式加入 `is_read=False`，让 Exchange 查询阶段就只返回未读邮件。
+
+**预防规则**:
+```
+邮件查询类开关命名检查：
+1. ✅ 区分“查询过滤条件”和“处理后状态变更”是两件事
+2. ✅ 参数名如果叫 unread_only，查询语句里必须能看到 is_read=False
+3. ✅ 验证方式：首次查询命中未读邮件，第二次查询应返回 0 封
+4. ❌ 不要只在处理后 mark as read，就认为实现了“只查未读”
+```
+
+**影响范围**: 所有基于 Exchange/EWS、IMAP 或邮件 API 的“未读邮件处理”逻辑。
+
+### 10. n8n Set node V3.4 中数组字段必须声明为 array
+
+**问题**: 工作流手动逐节点运行到 `输出-成功` 时，Set 节点报错：`'items' expects a object but we got array [item 0]`。
+
+**根因**: `输出-成功` 节点里的 `items` 字段来自 `解析PDF` 的行项目列表，实际值是数组，但 Set node 中把该字段声明成了 `type: "object"`。n8n V3.4 会做严格类型校验，因此直接失败。
+
+**解决**: 把 `items` 字段类型从 `object` 改成 `array`。同时检查其他输出节点，确认只有该节点包含 `items` 字段，`输出-审核` 和 `输出-失败` 不受影响。
+
+**预防规则**:
+```
+n8n Set node V3.4 输出字段检查：
+1. ✅ items / warnings / rows / list 这类字段优先怀疑是数组
+2. ✅ 从上游表达式实际返回值反推 type，而不是按字段名猜测
+3. ✅ 手动逐节点运行时，如出现 expects a object but we got array，优先检查 Set node assignment type
+4. ✅ 修改后顺带排查同类输出节点，避免只修一个分支
+5. ❌ 不要用 Ignore Type Conversion Errors 掩盖真实类型配置错误
+```
+
+**影响范围**: 所有使用 n8n `Set` 节点拼装结构化 JSON 输出的工作流。
+
+### 11. SAP SOAP 报文时间字段不能混用本地时间和 UTC
+
+**问题**: n8n 服务器在本地时间 2026-05-06 18:58 触发 SAP 发送，但 SAP 里记录的 `RTIME` 变成了 `10:54`，相差 8 小时。
+
+**根因**: 代码里 `RDATE` / `RTIME` 使用了 `datetime.utcnow()` 生成 UTC 时间，而当前业务希望 SAP 记录服务器本地时间（Asia/Shanghai）。
+
+**解决**: 统一改为 `datetime.now()` 生成 `RDATE` 和 `RTIME`，并补一个回归测试，确保不会再退回 UTC。
+
+**预防规则**:
+```
+SAP SOAP 时间字段检查：
+1. ✅ 先确认 SAP 期望的是服务器本地时间还是 UTC
+2. ✅ RDATE 和 RTIME 必须来自同一个时间基准
+3. ✅ 如果服务器按本地时间对账，优先用 datetime.now()
+4. ✅ 为时间格式生成逻辑补回归测试，避免时区回退
+5. ❌ 不要默认 datetime.utcnow() 一定正确
+```
+
+**影响范围**: 所有向 SAP 或其他外部系统发送业务时间戳的 SOAP / HTTP 集成。
+
 ## 待登记模板
 
 发现新踩坑时，按以下格式添加：

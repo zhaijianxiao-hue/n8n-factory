@@ -27,8 +27,16 @@
 
 | 服务 | 目录 | 端口 | 说明 |
 |------|------|------|------|
-| hana-query-api | `services/hana-query-api/` | 8766 | SAP HANA SQL → JSON 查询 API |
-| po-parser /check-email | `workflows/po-parser/service/` | 8765 | Exchange EWS → 下载 PDF 到 incoming |
+| hana-query-api | `services/hana-query-api/` | 8766 | SAP HANA SQL → JSON 查询 API，`POST /query` 执行受控查询，`GET /health` 检查连通性 |
+| screenshot-service | `services/screenshot-service/` | 8767 | 网页截图服务，`POST /screenshot` 返回 base64 PNG，供 n8n 后续上传飞书图片 |
+
+### Workflow 专用服务
+
+| 服务 | 目录 | 端口 | 说明 |
+|------|------|------|------|
+| po-parser service | `workflows/po-parser/service/` | 8765 | PO PDF 解析主服务，供 n8n 调用解析接口 |
+| po-parser /check-email | `workflows/po-parser/service/` | 8765 | Exchange EWS 拉取邮件附件到 incoming 目录 |
+| metal-price-sync service | `workflows/metal-price-sync/service/` | 8766 | 金属价格同步服务，提供价格抓取与 SOAP body 生成接口 |
 
 ### 踩坑记录
 
@@ -36,7 +44,41 @@
 
 ---
 
-## n8n 架构
+### 现有 API / Service 清单
+
+#### 通用服务
+
+- `hana-query-api` (`services/hana-query-api/`)
+  - Base URL: `http://10.142.1.135:8766`
+  - `GET /health`：检查 HANA 连通性
+  - `POST /query`：执行受控 SQL 查询，返回 `data / total / columns`
+
+- `screenshot-service` (`services/screenshot-service/`)
+  - Base URL: `http://10.142.1.135:8767`
+  - `GET /health`：服务健康检查
+  - `POST /screenshot`：输入 `url/width/height/full_page/delay_ms`，返回 `image_base64`
+  - 用途：给大屏、查询页、报表页截图，后续节点再上传飞书图片并发消息
+  - 限制：仅允许 `http/https`，默认禁止内网地址；可通过 `SCREENSHOT_ALLOWED_PRIVATE_HOSTS` 白名单放行指定内网 host/IP；当前默认使用服务器 Chromium
+
+#### Workflow 专用服务
+
+- `po-parser service` (`workflows/po-parser/service/`)
+  - Base URL: `http://10.142.1.135:8765`
+  - 解析 PDF、客户 profile 路由、输出标准 PO JSON
+  - 同机还提供 `/check-email`：从 Exchange EWS 拉取带附件邮件到 SMB incoming
+
+- `metal-price-sync service` (`workflows/metal-price-sync/service/`)
+  - 当前 README 标注端口 `8766`，实际部署时需避免与通用服务冲突
+  - 提供价格抓取、标准化 JSON、SOAP body 生成等接口
+  - 供每日价格同步 workflow 调用
+
+### Service 维护规则
+
+- 新增或修改 n8n 调用的 API/service 时，必须同步更新这里的清单。
+- 区分“通用服务”（`services/`）和“workflow 专用服务”（`workflows/*/service/`）。
+- 至少记录：目录、端口、Base URL、主要端点、用途、调用方 workflow。
+- 如果端口或部署地址与文档不一致，先以运行环境为准，再回写知识文档。
+
 
 ### 执行模型
 

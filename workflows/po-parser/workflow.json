@@ -248,7 +248,7 @@
               "value": "={{ $node['解析PDF'].json.header.total_amount }}"
             },
             {
-              "id": "items", "name": "items", "type": "object",
+              "id": "items", "name": "items", "type": "array",
               "value": "={{ $node['解析PDF'].json.items }}"
             },
             {

@@ -63,17 +63,19 @@ class ErrorResponse(BaseModel):
 
 class SoapBodyRequest(BaseModel):
     gold_price: float = Field(..., gt=0, le=100000, description="Gold price in CNY/g")
-    copper_price: float = Field(..., gt=0, le=10000000, description="Copper price in CNY/t")
+    copper_price: float = Field(
+        ..., gt=0, le=10000000, description="Copper price in CNY/t"
+    )
     price_date: str
-    
-    @field_validator('price_date')
+
+    @field_validator("price_date")
     @classmethod
     def validate_price_date(cls, v):
         try:
             datetime.strptime(v, "%Y-%m-%d")
             return v
         except ValueError:
-            raise ValueError('price_date must be in YYYY-MM-DD format')
+            raise ValueError("price_date must be in YYYY-MM-DD format")
 
 
 class SoapBodyResponse(BaseModel):
@@ -119,10 +121,10 @@ async def get_latest_prices():
 def build_soap_body(request: SoapBodyRequest) -> SoapBodyResponse:
     """
     Build SAP SOAP XML body for metal prices.
-    
+
     Args:
         request: Contains gold_price, copper_price, price_date
-        
+
     Returns:
         SoapBodyResponse with soap_body XML string
     """
@@ -130,21 +132,18 @@ def build_soap_body(request: SoapBodyRequest) -> SoapBodyResponse:
     price_datetime = datetime.strptime(request.price_date, "%Y-%m-%d")
     rdate = price_datetime.strftime("%Y%m%d")
     rtime = datetime.utcnow().strftime("%H%M%S")
-    
-    # Generate UUID
-    guid = str(uuid.uuid4())
-    
+
+    # SAP expects a 32-character uppercase GUID without hyphens.
+    guid = uuid.uuid4().hex.upper()
+
     # Convert copper price: 元/吨 → 万元 (divide by 10000, round to 2 decimals)
     copper_price_wan = round(request.copper_price / 10000, 2)
-    
+
     # Build JSON payload for I_INPUT (exact format per spec)
-    i_input_dict = {
-        "GOLD": str(request.gold_price),
-        "COPPER": str(copper_price_wan)
-    }
+    i_input_dict = {"GOLD": str(request.gold_price), "COPPER": str(copper_price_wan)}
     # Format JSON with specific indentation per spec: newline, 1 space before keys
-    i_input_json = '\n' + json.dumps(i_input_dict, indent=1).replace('\n  ', '\n ')
-    
+    i_input_json = "\n" + json.dumps(i_input_dict, indent=1).replace("\n  ", "\n ")
+
     # Build SOAP XML with correct SAP RFC structure
     soap_body = f"""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:sap-com:document:sap:rfc:functions">
    <soapenv:Header/>
@@ -165,7 +164,7 @@ def build_soap_body(request: SoapBodyRequest) -> SoapBodyResponse:
       </urn:Z_FMBC_IF_INBOUND>
    </soapenv:Body>
 </soapenv:Envelope>"""
-    
+
     return SoapBodyResponse(soap_body=soap_body)
 
 

@@ -1,0 +1,15 @@
+[Unit]
+Description=HANA Query API Service
+After=network.target
+
+[Service]
+Type=simple
+User=prd-n8n
+WorkingDirectory=/opt/hana-query-api
+ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8766
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
