@@ -18,11 +18,11 @@ def build_approval_payload(
     review_url: str,
 ) -> dict[str, Any]:
     return {
-        "event": "profile_lab.approval_requested",
+        "event": "po_profile_lab.approval_requested",
         "customer": customer,
         "run_id": run_id,
         "overall_score": summary.get("overall_score"),
-        "publishable": summary.get("publishable"),
+        "publishable": summary.get("publishable") is True,
         "review_url": review_url,
     }
 

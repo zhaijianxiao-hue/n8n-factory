@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from profile_lab_ui.api import create_app
 from profile_lab_ui.artifacts import ArtifactNotFoundError
 from profile_lab_ui.artifacts import run_dir
+from profile_lab_ui.notifications import build_approval_payload
 
 
 def write_json(path: Path, data: dict) -> None:
@@ -133,3 +134,21 @@ def test_submit_without_webhook_records_skipped_notification(tmp_path, monkeypat
     assert response.status_code == 200
     assert response.json()["notification_status"] == "skipped"
     assert response.json()["notification_error"]
+
+
+def test_build_approval_payload_uses_po_profile_lab_event_and_boolean_publishable():
+    payload = build_approval_payload(
+        customer="evytra",
+        run_id="run-1",
+        summary={"overall_score": 0.98, "publishable": "true"},
+        review_url="/profile-lab/customers/evytra/runs/run-1",
+    )
+
+    assert payload == {
+        "event": "po_profile_lab.approval_requested",
+        "customer": "evytra",
+        "run_id": "run-1",
+        "overall_score": 0.98,
+        "publishable": False,
+        "review_url": "/profile-lab/customers/evytra/runs/run-1",
+    }
