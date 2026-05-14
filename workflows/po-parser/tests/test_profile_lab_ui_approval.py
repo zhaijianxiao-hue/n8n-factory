@@ -94,7 +94,25 @@ def test_approve_run_requires_publishable_p0_pass(tmp_path):
     write_summary(run_dir, publishable=True, p0_pass=False)
     submit_run(run_dir, submitted_by="business", note="")
 
-    with pytest.raises(ApprovalGateError, match="P0 must pass"):
+    with pytest.raises(ApprovalGateError, match="p0_pass must be true"):
+        approve_run(run_dir, admin_by="admin", note="checked")
+
+
+def test_approve_run_uses_strict_publish_summary_contract(tmp_path):
+    run_dir = tmp_path / "profile-lab" / "customers" / "evytra" / "runs" / "run-1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "evaluation").mkdir(parents=True)
+    (run_dir / "evaluation" / "summary.json").write_text(
+        (
+            '{"publishable": "true", "sample_count": 1, "reports": ['
+            '{"publishable": true, "p0_pass": true, "blocking_errors": [], '
+            '"schema_pass": true, "scores": {"p1": 1.0, "business_rules": 1.0}}]}'
+        ),
+        encoding="utf-8",
+    )
+    submit_run(run_dir, submitted_by="business", note="")
+
+    with pytest.raises(ApprovalGateError, match="summary.publishable must be true"):
         approve_run(run_dir, admin_by="admin", note="checked")
 
 

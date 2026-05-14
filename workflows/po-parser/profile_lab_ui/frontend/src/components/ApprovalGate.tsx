@@ -8,12 +8,13 @@ interface ApprovalGateProps {
   customer: string;
   runId: string;
   approval: ApprovalRecord | null;
+  mode: "business" | "admin";
   onReload: () => Promise<void>;
 }
 
 type ActionName = "submit" | "approve" | "reject" | "publish";
 
-export function ApprovalGate({ customer, runId, approval, onReload }: ApprovalGateProps) {
+export function ApprovalGate({ customer, runId, approval, mode, onReload }: ApprovalGateProps) {
   const [busyAction, setBusyAction] = useState<ActionName | null>(null);
   const [error, setError] = useState("");
 
@@ -38,29 +39,30 @@ export function ApprovalGate({ customer, runId, approval, onReload }: ApprovalGa
     }
   }
 
-  const publishDisabled = approval?.state !== "approved" || busyAction !== null;
+  const isAdminMode = mode === "admin";
+  const publishDisabled = !isAdminMode || approval?.state !== "approved" || busyAction !== null;
   const actionDisabled = busyAction !== null;
 
   return (
     <section className="pane approval-gate">
       <div className="pane-header">
         <div>
-          <span className="pane-kicker">Approval Gate</span>
+          <span className="pane-kicker">{isAdminMode ? "Admin Gate" : "Business Gate"}</span>
           <h2>{approval?.state ?? "draft"}</h2>
         </div>
         <Rocket size={18} />
       </div>
 
       <div className="gate-actions">
-        <button type="button" onClick={() => runAction("submit")} disabled={actionDisabled} title="Submit">
+        <button type="button" onClick={() => runAction("submit")} disabled={isAdminMode || actionDisabled} title="Submit">
           <Send size={16} />
           <span>{busyAction === "submit" ? "Submitting" : "Submit"}</span>
         </button>
-        <button type="button" onClick={() => runAction("approve")} disabled={actionDisabled} title="Approve">
+        <button type="button" onClick={() => runAction("approve")} disabled={!isAdminMode || actionDisabled} title="Approve">
           <Check size={16} />
           <span>{busyAction === "approve" ? "Approving" : "Approve"}</span>
         </button>
-        <button type="button" onClick={() => runAction("reject")} disabled={actionDisabled} title="Reject">
+        <button type="button" onClick={() => runAction("reject")} disabled={!isAdminMode || actionDisabled} title="Reject">
           <X size={16} />
           <span>{busyAction === "reject" ? "Rejecting" : "Reject"}</span>
         </button>
@@ -72,7 +74,7 @@ export function ApprovalGate({ customer, runId, approval, onReload }: ApprovalGa
 
       {error ? <div className="gate-error">{error}</div> : null}
       <div className="gate-meta">
-        <span>business/admin defaults</span>
+        <span>{isAdminMode ? "admin review mode" : "business submission mode"}</span>
         <span>{approval?.admin_decision ?? "no admin decision"}</span>
       </div>
     </section>

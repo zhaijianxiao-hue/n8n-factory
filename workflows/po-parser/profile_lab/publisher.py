@@ -75,12 +75,30 @@ def validate_publish_summary(summary: dict) -> None:
         )
 
 
+def validate_admin_approval(customer_dir: Path, run_id: str) -> None:
+    approval_path = customer_dir / "runs" / run_id / "approval.json"
+    require_publish_gate(
+        approval_path.exists(),
+        "admin approval is required before publishing",
+    )
+    approval = read_json(approval_path)
+    require_publish_gate(
+        approval.get("state") == "approved",
+        "approval.state must be approved before publishing",
+    )
+    require_publish_gate(
+        approval.get("admin_decision") == "approved",
+        "approval.admin_decision must be approved before publishing",
+    )
+
+
 def publish_profile(root: Path, customer_key: str, run_id: str, production_dir: Path) -> Path:
     customer_dir = root / "customers" / customer_key
     summary_path = customer_dir / "runs" / run_id / "evaluation" / "summary.json"
     summary = read_json(summary_path)
     try:
         validate_publish_summary(summary)
+        validate_admin_approval(customer_dir, run_id)
     except PublishGateError as error:
         raise PublishGateError(
             f"profile is not publishable for customer={customer_key} run={run_id}: {error}"

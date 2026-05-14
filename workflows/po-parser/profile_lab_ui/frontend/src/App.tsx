@@ -15,6 +15,7 @@ import type { CustomerSummary, RunDetail, RunSample, RunSummary } from "./types"
 
 type LoadState = "loading" | "ready" | "empty" | "error";
 type AppView = "workbench" | "dashboard" | "admin";
+type ApprovalMode = "business" | "admin";
 
 function latestRunId(runs: RunSummary[]): string {
   return runs[0]?.run_id ?? "";
@@ -31,6 +32,7 @@ export default function App() {
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState("");
   const [activeView, setActiveView] = useState<AppView>("workbench");
+  const [approvalMode, setApprovalMode] = useState<ApprovalMode>("business");
 
   const selectedSample = useMemo<RunSample | null>(() => {
     if (!runDetail?.samples.length) {
@@ -138,6 +140,7 @@ export default function App() {
 
   async function handleCustomerChange(customer: string) {
     setSelectedCustomer(customer);
+    setApprovalMode("business");
     try {
       await loadRunsForCustomer(customer);
     } catch (err) {
@@ -148,6 +151,7 @@ export default function App() {
 
   async function handleRunChange(runId: string) {
     setSelectedRunId(runId);
+    setApprovalMode("business");
     try {
       setState("loading");
       await loadRunDetail(selectedCustomer, runId);
@@ -159,6 +163,7 @@ export default function App() {
 
   async function handleOpenRun(customer: string, runId: string) {
     setActiveView("workbench");
+    setApprovalMode("admin");
     setSelectedCustomer(customer);
     try {
       await loadRunsForCustomer(customer, runId);
@@ -173,7 +178,14 @@ export default function App() {
   return (
     <main className="app-shell">
       <nav className="view-tabs" aria-label="Profile Lab views">
-        <button className={activeView === "workbench" ? "active" : ""} type="button" onClick={() => setActiveView("workbench")}>
+        <button
+          className={activeView === "workbench" ? "active" : ""}
+          type="button"
+          onClick={() => {
+            setActiveView("workbench");
+            setApprovalMode("business");
+          }}
+        >
           Workbench
         </button>
         <button className={activeView === "dashboard" ? "active" : ""} type="button" onClick={() => setActiveView("dashboard")}>
@@ -222,7 +234,13 @@ export default function App() {
               <CandidateDiffPane sample={selectedSample} />
               <StandardJsonPane sample={selectedSample} />
               <AdjudicationPanel evaluation={runDetail.evaluation} approval={runDetail.approval} sample={selectedSample} />
-              <ApprovalGate customer={selectedCustomer} runId={selectedRunId} approval={runDetail.approval} onReload={reloadCurrentRun} />
+              <ApprovalGate
+                customer={selectedCustomer}
+                runId={selectedRunId}
+                approval={runDetail.approval}
+                mode={approvalMode}
+                onReload={reloadCurrentRun}
+              />
             </section>
           </>
         ) : (

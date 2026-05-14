@@ -9,7 +9,6 @@ cd workflows/po-parser
 python -m profile_lab init-customer --customer evytra --display-name "EVYTRA GmbH"
 python -m profile_lab draft --customer evytra --run-id 2026-05-14-153000
 python -m profile_lab evaluate --customer evytra --run-id 2026-05-14-153000
-python -m profile_lab publish --customer evytra --run-id 2026-05-14-153000
 ```
 
 ## CLI Options
@@ -48,5 +47,17 @@ Copy and correct the approved result into `expected/*.json` before running evalu
 
 ## Publishing
 
-Publishing is blocked unless evaluation summary says `publishable: true`.
+Publishing is blocked unless evaluation summary says `publishable: true` and
+the run has `approval.json` with admin approval. The normal path is:
+
+1. Business user submits the evaluated run in the UI.
+2. Admin opens Admin Review, checks the evidence, approves the run, then publishes.
+
+The CLI publish command uses the same gate, so it cannot publish a run before
+admin approval:
+
+```bash
+python -m profile_lab publish --customer evytra --run-id 2026-05-14-153000
+```
+
 Published profiles are exported to `workflows/po-parser/profiles/`.

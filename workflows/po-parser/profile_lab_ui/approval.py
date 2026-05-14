@@ -4,6 +4,9 @@ from datetime import timezone
 from pathlib import Path
 from typing import Any
 
+from profile_lab.publisher import PublishGateError
+from profile_lab.publisher import validate_publish_summary
+
 from .models import ApprovalRecord
 
 
@@ -62,9 +65,11 @@ def load_summary(run_dir: Path) -> dict[str, Any]:
 
 
 def summary_is_publishable(summary: dict[str, Any]) -> bool:
-    if not summary.get("publishable"):
+    try:
+        validate_publish_summary(summary)
+    except PublishGateError:
         return False
-    return all(report.get("publishable") for report in summary.get("reports", []))
+    return True
 
 
 def summary_p0_passes(summary: dict[str, Any]) -> bool:
@@ -90,8 +95,10 @@ def submit_run(run_dir: Path, submitted_by: str, note: str = "") -> ApprovalReco
 
 def approve_run(run_dir: Path, admin_by: str, note: str = "") -> ApprovalRecord:
     summary = load_summary(run_dir)
-    if not summary_is_publishable(summary):
-        raise ApprovalGateError("evaluation summary must be publishable")
+    try:
+        validate_publish_summary(summary)
+    except PublishGateError as error:
+        raise ApprovalGateError(str(error)) from error
     if not summary_p0_passes(summary):
         raise ApprovalGateError("P0 must pass")
 
