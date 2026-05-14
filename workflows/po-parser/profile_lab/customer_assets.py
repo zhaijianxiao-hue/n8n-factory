@@ -1,7 +1,16 @@
+import shutil
 from pathlib import Path
 
-from .json_io import write_json
-from .models import CustomerConfig, CustomerInitResult, ProfileConfig, dump_model
+from .json_io import read_json, write_json
+from .models import (
+    CustomerConfig,
+    CustomerInitResult,
+    ProfileConfig,
+    RunCreateResult,
+    RunManifest,
+    current_timestamp,
+    dump_model,
+)
 
 
 DEFAULT_FIELD_PRIORITY = {
@@ -82,3 +91,36 @@ def init_customer(
     write_if_missing(customer_dir / "prompt.md", DEFAULT_PROMPT)
 
     return CustomerInitResult(customer_dir=customer_dir)
+
+
+def list_sample_pdfs(customer_dir: Path) -> list[Path]:
+    samples_dir = customer_dir / "samples"
+    if not samples_dir.exists():
+        return []
+    return sorted(
+        path for path in samples_dir.iterdir()
+        if path.is_file() and path.suffix.lower() == ".pdf"
+    )
+
+
+def create_run(root: Path, customer_key: str, run_id: str) -> RunCreateResult:
+    customer_dir = root / "customers" / customer_key
+    profile = read_json(customer_dir / "profile.json")
+    sample_paths = list_sample_pdfs(customer_dir)
+    run_dir = customer_dir / "runs" / run_id
+    inputs_dir = run_dir / "inputs"
+    inputs_dir.mkdir(parents=True, exist_ok=True)
+
+    for sample_path in sample_paths:
+        shutil.copy2(sample_path, inputs_dir / sample_path.name)
+
+    manifest = RunManifest(
+        run_id=run_id,
+        customer=customer_key,
+        profile_version=profile["version"],
+        samples=[sample_path.name for sample_path in sample_paths],
+        created_at=current_timestamp(),
+    )
+    write_json(run_dir / "manifest.json", dump_model(manifest))
+
+    return RunCreateResult(run_dir=run_dir, manifest=manifest)

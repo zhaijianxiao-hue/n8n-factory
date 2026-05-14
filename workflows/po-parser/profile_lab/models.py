@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,22 @@ def dump_model(model: BaseModel) -> dict:
 
 class CustomerInitResult(BaseModel):
     customer_dir: Path
+
+
+class RunManifest(BaseModel):
+    run_id: str
+    customer: str
+    profile_version: str
+    prompt_version: str = "0.1.0"
+    model_text: str | None = None
+    model_vision: str | None = None
+    samples: list[str]
+    created_at: str
+
+
+class RunCreateResult(BaseModel):
+    run_dir: Path
+    manifest: RunManifest
 
 
 class CustomerConfig(BaseModel):
@@ -37,3 +54,7 @@ class ProfileConfig(BaseModel):
     last_run_id: str | None = None
     last_score: dict[str, Any] | None = None
     published_at: str | None = None
+
+
+def current_timestamp() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")

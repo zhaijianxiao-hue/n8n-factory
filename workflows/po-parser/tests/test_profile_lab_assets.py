@@ -2,7 +2,8 @@ import importlib
 import json
 from pathlib import Path
 
-from profile_lab.customer_assets import init_customer
+from profile_lab.customer_assets import create_run, init_customer
+from profile_lab.pdf_pages import sample_key_from_pdf
 
 
 def test_profile_lab_package_imports():
@@ -53,3 +54,22 @@ def test_init_customer_is_idempotent_for_existing_assets(tmp_path):
 
     assert second.customer_dir == first.customer_dir
     assert prompt_path.read_text(encoding="utf-8") == "custom prompt\n"
+
+
+def test_create_run_copies_samples_and_writes_manifest(tmp_path):
+    root = tmp_path / "profile-lab"
+    init_customer(root=root, customer_key="acme", display_name="ACME Corp")
+    sample = root / "customers" / "acme" / "samples" / "po-001.pdf"
+    sample.write_bytes(b"%PDF-1.4\n")
+
+    run = create_run(root=root, customer_key="acme", run_id="2026-05-14-153000")
+
+    assert run.run_dir == root / "customers" / "acme" / "runs" / "2026-05-14-153000"
+    assert (run.run_dir / "inputs" / "po-001.pdf").is_file()
+    manifest = json.loads((run.run_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["customer"] == "acme"
+    assert manifest["samples"] == ["po-001.pdf"]
+
+
+def test_sample_key_from_pdf_removes_extension():
+    assert sample_key_from_pdf(Path("PO-001.pdf")) == "PO-001"
