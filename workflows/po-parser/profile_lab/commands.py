@@ -7,8 +7,9 @@ from .customer_assets import create_run, init_customer
 from .evaluator import evaluate_po_result
 from .json_io import read_json, write_json
 from .llm_client import OpenAICompatibleJsonClient
-from .paths import DEFAULT_LAB_ROOT
+from .paths import DEFAULT_LAB_ROOT, PRODUCTION_PROFILE_DIR
 from .pdf_pages import render_pdf_pages, sample_key_from_pdf
+from .publisher import PublishGateError, publish_profile
 from .text_candidate import (
     extract_text_from_pdf,
     generate_text_candidate,
@@ -39,6 +40,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     publish = subparsers.add_parser("publish")
     publish.add_argument("--customer", required=True)
+    publish.add_argument("--run-id", required=True)
+    publish.add_argument("--production-dir", default=str(PRODUCTION_PROFILE_DIR))
 
     return parser
 
@@ -226,6 +229,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_id=args.run_id,
         )
         print(f"wrote evaluation: {evaluation_dir}")
+        return 0
+
+    if args.command == "publish":
+        try:
+            output_path = publish_profile(
+                root=lab_root,
+                customer_key=args.customer,
+                run_id=args.run_id,
+                production_dir=Path(args.production_dir),
+            )
+        except PublishGateError as error:
+            print(error)
+            return 1
+        print(f"published profile: {output_path}")
         return 0
 
     parser.error(f"unsupported command reached: {args.command}")
