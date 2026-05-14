@@ -59,6 +59,23 @@ def add_blocking_error(
     )
 
 
+def normalize_item_rows(items: list[Any], errors: list[dict]) -> list[dict]:
+    normalized_items = []
+    for index, item in enumerate(items):
+        if isinstance(item, dict):
+            normalized_items.append(item)
+            continue
+        add_blocking_error(
+            errors,
+            f"items[{index}]",
+            "dict",
+            item,
+            "schema shape mismatch",
+        )
+        normalized_items.append({})
+    return normalized_items
+
+
 def get_items(payload: dict, errors: list[dict]) -> list[dict]:
     items = payload.get("items")
     if not isinstance(items, list):
@@ -78,7 +95,7 @@ def get_items(payload: dict, errors: list[dict]) -> list[dict]:
             items,
             "schema shape mismatch",
         )
-    return items
+    return normalize_item_rows(items, errors)
 
 
 def add_required_field_error(

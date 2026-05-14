@@ -136,3 +136,43 @@ def test_evaluate_po_result_blocks_malformed_actual_items_without_exception():
     assert report["schema_pass"] is False
     assert report["publishable"] is False
     assert any(error["field"] == "items" for error in report["blocking_errors"])
+
+
+def test_evaluate_po_result_blocks_malformed_actual_item_row_without_exception():
+    expected = {
+        "header": {"customer_name": "ACME", "po_number": "PO-1", "po_date": "2026-05-14"},
+        "items": [{"customer_material": "MAT-1", "qty": 2, "delivery_date": "2026-06-01"}],
+    }
+    actual = {
+        "header": {"customer_name": "ACME", "po_number": "PO-1", "po_date": "2026-05-14"},
+        "items": ["not-an-object"],
+    }
+
+    report = evaluate_po_result(expected=expected, actual=actual)
+
+    assert report["schema_pass"] is False
+    assert report["publishable"] is False
+    assert any(
+        error["field"] == "items[0]" and error["reason"] == "schema shape mismatch"
+        for error in report["blocking_errors"]
+    )
+
+
+def test_evaluate_po_result_blocks_malformed_expected_item_row_without_exception():
+    expected = {
+        "header": {"customer_name": "ACME", "po_number": "PO-1", "po_date": "2026-05-14"},
+        "items": ["not-an-object"],
+    }
+    actual = {
+        "header": {"customer_name": "ACME", "po_number": "PO-1", "po_date": "2026-05-14"},
+        "items": [{"customer_material": "MAT-1", "qty": 2, "delivery_date": "2026-06-01"}],
+    }
+
+    report = evaluate_po_result(expected=expected, actual=actual)
+
+    assert report["schema_pass"] is False
+    assert report["publishable"] is False
+    assert any(
+        error["field"] == "items[0]" and error["reason"] == "schema shape mismatch"
+        for error in report["blocking_errors"]
+    )
