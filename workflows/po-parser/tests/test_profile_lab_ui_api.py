@@ -18,7 +18,22 @@ def create_run(root: Path) -> Path:
     run_dir = root / "customers" / "evytra" / "runs" / "run-1"
     write_json(root / "customers" / "evytra" / "customer.json", {"customer_key": "evytra", "display_name": "EVYTRA GmbH"})
     write_json(run_dir / "manifest.json", {"run_id": "run-1", "customer": "evytra", "samples": ["sample.pdf"], "created_at": "2026-05-14T18:30:00+08:00"})
-    write_json(run_dir / "evaluation" / "summary.json", {"publishable": True, "sample_count": 1, "reports": []})
+    write_json(
+        run_dir / "evaluation" / "summary.json",
+        {
+            "publishable": True,
+            "sample_count": 1,
+            "reports": [
+                {
+                    "publishable": True,
+                    "schema_pass": True,
+                    "p0_pass": True,
+                    "blocking_errors": [],
+                    "scores": {"p1": 1.0, "business_rules": 1.0},
+                }
+            ],
+        },
+    )
     write_json(run_dir / "approval.json", {"state": "submitted", "note": "ready"})
     write_json(run_dir / "candidates" / "text" / "sample.json", {"header": {"po_number": "PO-1"}, "items": []})
     write_json(run_dir / "candidates" / "vision" / "sample.json", {"header": {"po_number": "PO-1"}, "items": []})
@@ -71,3 +86,50 @@ def test_run_dir_raises_for_missing_path(tmp_path):
 
     with pytest.raises(ArtifactNotFoundError):
         run_dir(lab_root, "evytra", "missing")
+
+
+def test_submit_approve_reject_actions(tmp_path):
+    lab_root = tmp_path / "profile-lab"
+    create_run(lab_root)
+    client = TestClient(create_app(lab_root=lab_root))
+
+    submitted = client.post("/api/customers/evytra/runs/run-1/submit", json={"actor": "business", "note": "ready"})
+    approved = client.post("/api/customers/evytra/runs/run-1/approve", json={"actor": "admin", "note": "ok"})
+    rejected = client.post("/api/customers/evytra/runs/run-1/reject", json={"actor": "admin", "note": "fix date"})
+
+    assert submitted.status_code == 200
+    assert submitted.json()["state"] == "submitted"
+    assert approved.status_code == 200
+    assert approved.json()["state"] == "approved"
+    assert rejected.status_code == 200
+    assert rejected.json()["state"] == "changes_requested"
+
+
+def test_publish_requires_admin_approval(tmp_path):
+    lab_root = tmp_path / "profile-lab"
+    create_run(lab_root)
+    write_json(lab_root / "customers" / "evytra" / "profile.json", {"profile_name": "evytra", "version": "0.1.0"})
+    client = TestClient(create_app(lab_root=lab_root, production_dir=tmp_path / "profiles"))
+
+    blocked = client.post("/api/customers/evytra/runs/run-1/publish")
+    client.post("/api/customers/evytra/runs/run-1/submit", json={"actor": "business", "note": "ready"})
+    client.post("/api/customers/evytra/runs/run-1/approve", json={"actor": "admin", "note": "ok"})
+    published = client.post("/api/customers/evytra/runs/run-1/publish")
+
+    assert blocked.status_code == 409
+    assert published.status_code == 200
+    assert published.json()["state"] == "published"
+    assert (tmp_path / "profiles" / "evytra.json").exists()
+
+
+def test_submit_without_webhook_records_skipped_notification(tmp_path, monkeypatch):
+    monkeypatch.delenv("PO_PROFILE_LAB_APPROVAL_WEBHOOK_URL", raising=False)
+    lab_root = tmp_path / "profile-lab"
+    create_run(lab_root)
+    client = TestClient(create_app(lab_root=lab_root))
+
+    response = client.post("/api/customers/evytra/runs/run-1/submit", json={"actor": "business", "note": "ready"})
+
+    assert response.status_code == 200
+    assert response.json()["notification_status"] == "skipped"
+    assert response.json()["notification_error"]
