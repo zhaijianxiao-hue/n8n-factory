@@ -1,3 +1,10 @@
+import type {
+  ApprovalRecord,
+  CustomerSummary,
+  RunDetail,
+  RunSummary
+} from "./types";
+
 type RequestOptions = RequestInit & {
   json?: unknown;
 };

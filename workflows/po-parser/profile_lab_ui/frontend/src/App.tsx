@@ -2,6 +2,7 @@ import { Activity, AlertTriangle, Database, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { api } from "./api";
+import type { CustomerSummary } from "./types";
 
 type LoadState = "loading" | "ready" | "error";
 
