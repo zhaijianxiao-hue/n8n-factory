@@ -30,6 +30,11 @@
 | hana-query-api | `services/hana-query-api/` | 8766 | SAP HANA SQL → JSON 查询 API |
 | po-parser /check-email | `workflows/po-parser/service/` | 8765 | Exchange EWS → 下载 PDF 到 incoming |
 
+- `po-parser profile lab` (`workflows/po-parser/profile_lab/` + `workflows/po-parser/profile-lab/`)
+  - 本地优先的客户 PO 解析 Profile 训练/评测/调优核心
+  - 命令入口：`cd workflows/po-parser && python -m profile_lab init-customer --customer evytra`
+  - 产物：customer assets、runs、candidate JSON、adjudication reports、evaluation reports、published profiles
+
 ### 踩坑记录
 
 - `LEARNINGS.md` - 所有踩坑汇总
