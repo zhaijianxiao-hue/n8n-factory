@@ -2,8 +2,12 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
-from .customer_assets import init_customer
+from .customer_assets import create_run, init_customer
+from .json_io import write_json
 from .paths import DEFAULT_LAB_ROOT
+from .pdf_pages import render_pdf_pages, sample_key_from_pdf
+from .text_candidate import generate_text_candidate
+from .vision_candidate import generate_vision_candidate
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,6 +21,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     draft = subparsers.add_parser("draft")
     draft.add_argument("--customer", required=True)
+    draft.add_argument("--run-id", required=True)
+    draft.add_argument("--skip-render", action="store_true")
 
     evaluate = subparsers.add_parser("evaluate")
     evaluate.add_argument("--customer", required=True)
@@ -25,6 +31,33 @@ def build_parser() -> argparse.ArgumentParser:
     publish.add_argument("--customer", required=True)
 
     return parser
+
+
+def run_draft(
+    lab_root: Path,
+    customer_key: str,
+    run_id: str,
+    skip_render: bool,
+) -> Path:
+    run = create_run(root=lab_root, customer_key=customer_key, run_id=run_id)
+    inputs_dir = run.run_dir / "inputs"
+
+    for pdf_path in sorted(inputs_dir.glob("*.pdf")):
+        sample_key = sample_key_from_pdf(pdf_path)
+        page_paths: list[Path] = []
+        if not skip_render:
+            page_paths = render_pdf_pages(pdf_path, run.run_dir / "pages" / sample_key)
+
+        write_json(
+            run.run_dir / "candidates" / "text" / f"{sample_key}.json",
+            generate_text_candidate(pdf_path),
+        )
+        write_json(
+            run.run_dir / "candidates" / "vision" / f"{sample_key}.json",
+            generate_vision_candidate(pdf_path, page_paths),
+        )
+
+    return run.run_dir
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -39,6 +72,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             display_name=args.display_name,
         )
         print(f"initialized customer assets: {result.customer_dir}")
+        return 0
+
+    if args.command == "draft":
+        run_dir = run_draft(
+            lab_root=lab_root,
+            customer_key=args.customer,
+            run_id=args.run_id,
+            skip_render=args.skip_render,
+        )
+        print(f"created draft run: {run_dir}")
         return 0
 
     parser.error(f"unsupported command reached: {args.command}")

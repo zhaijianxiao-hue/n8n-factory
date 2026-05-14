@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from profile_lab.commands import main
 from profile_lab.customer_assets import create_run, init_customer
 from profile_lab.pdf_pages import sample_key_from_pdf
 
@@ -95,3 +96,26 @@ def test_create_run_raises_when_run_id_already_exists(tmp_path):
 
 def test_sample_key_from_pdf_removes_extension():
     assert sample_key_from_pdf(Path("PO-001.pdf")) == "PO-001"
+
+
+def test_draft_command_creates_candidate_files(tmp_path):
+    root = tmp_path / "profile-lab"
+    init_customer(root=root, customer_key="acme", display_name="ACME Corp")
+    sample = root / "customers" / "acme" / "samples" / "po-001.pdf"
+    sample.write_bytes(b"%PDF-1.4\n")
+
+    exit_code = main([
+        "--lab-root",
+        str(root),
+        "draft",
+        "--customer",
+        "acme",
+        "--run-id",
+        "2026-05-14-153000",
+        "--skip-render",
+    ])
+
+    assert exit_code == 0
+    run_dir = root / "customers" / "acme" / "runs" / "2026-05-14-153000"
+    assert (run_dir / "candidates" / "text" / "po-001.json").is_file()
+    assert (run_dir / "candidates" / "vision" / "po-001.json").is_file()
