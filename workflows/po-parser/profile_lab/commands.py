@@ -8,7 +8,11 @@ from .json_io import write_json
 from .llm_client import OpenAICompatibleJsonClient
 from .paths import DEFAULT_LAB_ROOT
 from .pdf_pages import render_pdf_pages, sample_key_from_pdf
-from .text_candidate import generate_text_candidate, generate_text_candidate_with_model
+from .text_candidate import (
+    extract_text_from_pdf,
+    generate_text_candidate,
+    generate_text_candidate_with_model,
+)
 from .vision_candidate import generate_vision_candidate, generate_vision_candidate_with_model
 
 
@@ -60,7 +64,7 @@ def run_draft(
         text_path = run.run_dir / "candidates" / "text" / f"{sample_key}.json"
         vision_path = run.run_dir / "candidates" / "vision" / f"{sample_key}.json"
         if text_model and model_client:
-            extracted_text = pdf_path.read_bytes().decode("latin-1", errors="ignore")
+            extracted_text = extract_text_from_pdf(pdf_path)
             text_candidate = generate_text_candidate_with_model(
                 pdf_path=pdf_path,
                 extracted_text=extracted_text,

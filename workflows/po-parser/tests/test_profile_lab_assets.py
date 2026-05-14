@@ -6,7 +6,7 @@ import pytest
 
 from profile_lab.commands import main
 from profile_lab.customer_assets import create_run, init_customer
-from profile_lab.llm_client import extract_json_object
+from profile_lab.llm_client import OpenAICompatibleJsonClient, extract_json_object
 from profile_lab.pdf_pages import sample_key_from_pdf
 from profile_lab.text_candidate import generate_text_candidate_with_model
 from profile_lab.vision_candidate import generate_vision_candidate_with_model
@@ -179,6 +179,28 @@ def test_draft_command_creates_adjudication_artifacts(tmp_path):
 def test_extract_json_object_strips_markdown_fence():
     content = "```json\n{\"header\": {\"po_number\": \"PO-1\"}, \"items\": []}\n```"
     assert extract_json_object(content)["header"]["po_number"] == "PO-1"
+
+
+def test_extract_json_object_handles_prose_wrapped_fence():
+    content = "Here is JSON:\n```JSON\n{\"ok\": true}\n```"
+    assert extract_json_object(content)["ok"] is True
+
+
+def test_extract_json_object_handles_prose_wrapped_object():
+    content = "Here is JSON: {\"ok\": true} thanks"
+    assert extract_json_object(content)["ok"] is True
+
+
+def test_extract_json_object_reports_missing_json():
+    with pytest.raises(ValueError, match="No JSON object"):
+        extract_json_object("not json")
+
+
+def test_openai_client_reports_missing_api_key(monkeypatch):
+    monkeypatch.delenv("PO_PROFILE_LAB_OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="PO_PROFILE_LAB_OPENAI_API_KEY is required"):
+        OpenAICompatibleJsonClient()
 
 
 def test_text_candidate_uses_model_client(tmp_path):

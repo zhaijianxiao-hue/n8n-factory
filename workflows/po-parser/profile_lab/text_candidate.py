@@ -3,6 +3,19 @@ from pathlib import Path
 from .llm_client import JsonClient
 
 
+def extract_text_from_pdf(pdf_path: Path) -> str:
+    try:
+        import fitz
+    except ImportError as exc:
+        raise RuntimeError("PyMuPDF is required to extract PDF text") from exc
+
+    doc = fitz.open(pdf_path)
+    try:
+        return "\n".join(page.get_text() for page in doc)
+    finally:
+        doc.close()
+
+
 def build_empty_candidate(source_file: str, source: str) -> dict:
     return {
         "source_file": source_file,
