@@ -2,8 +2,9 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
+from .adjudicator import adjudicate_sample
 from .customer_assets import create_run, init_customer
-from .json_io import write_json
+from .json_io import read_json, write_json
 from .paths import DEFAULT_LAB_ROOT
 from .pdf_pages import render_pdf_pages, sample_key_from_pdf
 from .text_candidate import generate_text_candidate
@@ -48,13 +49,21 @@ def run_draft(
         if not skip_render:
             page_paths = render_pdf_pages(pdf_path, run.run_dir / "pages" / sample_key)
 
+        text_path = run.run_dir / "candidates" / "text" / f"{sample_key}.json"
+        vision_path = run.run_dir / "candidates" / "vision" / f"{sample_key}.json"
         write_json(
-            run.run_dir / "candidates" / "text" / f"{sample_key}.json",
+            text_path,
             generate_text_candidate(pdf_path),
         )
         write_json(
-            run.run_dir / "candidates" / "vision" / f"{sample_key}.json",
+            vision_path,
             generate_vision_candidate(pdf_path, page_paths),
+        )
+        adjudicate_sample(
+            sample_key,
+            read_json(text_path),
+            read_json(vision_path),
+            run.run_dir / "adjudication",
         )
 
     return run.run_dir

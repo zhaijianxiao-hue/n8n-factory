@@ -119,3 +119,28 @@ def test_draft_command_creates_candidate_files(tmp_path):
     run_dir = root / "customers" / "acme" / "runs" / "2026-05-14-153000"
     assert (run_dir / "candidates" / "text" / "po-001.json").is_file()
     assert (run_dir / "candidates" / "vision" / "po-001.json").is_file()
+
+
+def test_draft_command_creates_adjudication_artifacts(tmp_path):
+    root = tmp_path / "profile-lab"
+    init_customer(root=root, customer_key="acme", display_name="ACME Corp")
+    sample = root / "customers" / "acme" / "samples" / "po-001.pdf"
+    sample.write_bytes(b"%PDF-1.4\n")
+
+    exit_code = main([
+        "--lab-root",
+        str(root),
+        "draft",
+        "--customer",
+        "acme",
+        "--run-id",
+        "2026-05-14-153000",
+        "--skip-render",
+    ])
+
+    assert exit_code == 0
+    run_dir = root / "customers" / "acme" / "runs" / "2026-05-14-153000"
+    assert (run_dir / "adjudication" / "po-001.merged_draft.json").is_file()
+    assert (run_dir / "adjudication" / "po-001.conflict_report.md").is_file()
+    assert (run_dir / "adjudication" / "po-001.field_evidence.json").is_file()
+    assert (run_dir / "adjudication" / "po-001.profile_suggestions.md").is_file()
