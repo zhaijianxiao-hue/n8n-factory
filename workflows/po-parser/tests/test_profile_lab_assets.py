@@ -144,3 +144,20 @@ def test_draft_command_creates_adjudication_artifacts(tmp_path):
     assert (run_dir / "adjudication" / "po-001.conflict_report.md").is_file()
     assert (run_dir / "adjudication" / "po-001.field_evidence.json").is_file()
     assert (run_dir / "adjudication" / "po-001.profile_suggestions.md").is_file()
+
+    merged_draft = json.loads(
+        (run_dir / "adjudication" / "po-001.merged_draft.json").read_text(encoding="utf-8")
+    )
+    assert merged_draft["metadata"]["adjudication_status"] == "no_usable_candidate"
+
+    conflict_report = (run_dir / "adjudication" / "po-001.conflict_report.md").read_text(
+        encoding="utf-8"
+    )
+    assert "No usable candidate was produced" in conflict_report
+
+    field_evidence = json.loads(
+        (run_dir / "adjudication" / "po-001.field_evidence.json").read_text(encoding="utf-8")
+    )
+    assert field_evidence["_adjudication"]["human_review_required"] is True
+    assert "header" not in field_evidence
+    assert "header.po_number" in field_evidence
