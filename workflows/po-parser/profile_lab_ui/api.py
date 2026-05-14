@@ -25,6 +25,7 @@ from .models import AdminDecisionRequest
 from .models import ApprovalRequest
 from .notifications import build_approval_payload
 from .notifications import send_approval_notification
+from .static import mount_frontend
 
 
 def create_app(
@@ -108,5 +109,9 @@ def create_app(
             raise HTTPException(status_code=404, detail="run not found") from exc
         except (ApprovalGateError, PublishGateError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    frontend_dist_dir = Path(__file__).parent / "frontend" / "dist"
+    if (frontend_dist_dir / "index.html").exists():
+        mount_frontend(app, frontend_dist_dir)
 
     return app

@@ -24,6 +24,22 @@ OpenAI-compatible model-backed candidate generation.
 Environment variables:
 - `PO_PROFILE_LAB_OPENAI_API_KEY` is required when using model-backed candidates.
 - `PO_PROFILE_LAB_OPENAI_BASE_URL` is optional for OpenAI-compatible endpoints.
+- `PO_PROFILE_LAB_APPROVAL_WEBHOOK_URL` is optional; when set, approval
+  submissions send a notification webhook.
+
+## UI
+
+Build the frontend and run the FastAPI service:
+
+```bash
+cd workflows/po-parser/profile_lab_ui/frontend
+npm install
+npm run build
+cd workflows/po-parser
+python -m profile_lab_ui
+```
+
+The UI runs at `http://localhost:8768`.
 
 ## Human Approval
 
