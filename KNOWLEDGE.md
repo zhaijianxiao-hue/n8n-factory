@@ -45,6 +45,7 @@
   - 产物：customer assets、runs、candidate JSON、adjudication reports、evaluation reports、published profiles
   - UI 服务：`cd workflows/po-parser && python -m profile_lab_ui`，默认端口 `8768`
   - 审批通知：设置 `PO_PROFILE_LAB_APPROVAL_WEBHOOK_URL` 后，提交审批时发送 webhook
+  - 管理员动作：`approve` / `reject` / `publish` 需要设置 `PO_PROFILE_LAB_ADMIN_TOKEN`，前端通过 `X-PO-Profile-Lab-Admin-Token` 调用
 
 ### 踩坑记录
 

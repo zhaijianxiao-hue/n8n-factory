@@ -25,6 +25,8 @@ Environment variables:
 - `PO_PROFILE_LAB_OPENAI_BASE_URL` is optional for OpenAI-compatible endpoints.
 - `PO_PROFILE_LAB_APPROVAL_WEBHOOK_URL` is optional; when set, approval
   submissions send a notification webhook.
+- `PO_PROFILE_LAB_ADMIN_TOKEN` is required for Admin Review approve, reject,
+  and publish API calls.
 
 ## UI
 
@@ -51,7 +53,8 @@ Publishing is blocked unless evaluation summary says `publishable: true` and
 the run has `approval.json` with admin approval. The normal path is:
 
 1. Business user submits the evaluated run in the UI.
-2. Admin opens Admin Review, checks the evidence, approves the run, then publishes.
+2. Admin enters the configured admin token, opens Admin Review, checks the
+   evidence, approves the run, then publishes.
 
 The CLI publish command uses the same gate, so it cannot publish a run before
 admin approval:

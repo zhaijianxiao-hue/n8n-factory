@@ -19,6 +19,12 @@ function actionBody(actor: string, note?: string): RequestOptions {
   };
 }
 
+function adminHeaders(adminToken: string): HeadersInit {
+  return {
+    "X-PO-Profile-Lab-Admin-Token": adminToken
+  };
+}
+
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
@@ -56,19 +62,19 @@ export const api = {
       `/api/customers/${encodeURIComponent(customer)}/runs/${encodeURIComponent(runId)}/submit`,
       actionBody(actor, note)
     ),
-  approve: (customer: string, runId: string, actor = "admin", note?: string) =>
+  approve: (customer: string, runId: string, adminToken: string, actor = "admin", note?: string) =>
     request<ApprovalRecord>(
       `/api/customers/${encodeURIComponent(customer)}/runs/${encodeURIComponent(runId)}/approve`,
-      actionBody(actor, note)
+      { ...actionBody(actor, note), headers: adminHeaders(adminToken) }
     ),
-  reject: (customer: string, runId: string, actor = "admin", note?: string) =>
+  reject: (customer: string, runId: string, adminToken: string, actor = "admin", note?: string) =>
     request<ApprovalRecord>(
       `/api/customers/${encodeURIComponent(customer)}/runs/${encodeURIComponent(runId)}/reject`,
-      actionBody(actor, note)
+      { ...actionBody(actor, note), headers: adminHeaders(adminToken) }
     ),
-  publish: (customer: string, runId: string) =>
+  publish: (customer: string, runId: string, adminToken: string) =>
     request<ApprovalRecord & { profile_path?: string }>(
       `/api/customers/${encodeURIComponent(customer)}/runs/${encodeURIComponent(runId)}/publish`,
-      { method: "POST" }
+      { method: "POST", headers: adminHeaders(adminToken) }
     )
 };

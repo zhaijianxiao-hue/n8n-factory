@@ -1,6 +1,10 @@
+import hmac
+import os
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI
+from fastapi import Header
 from fastapi import HTTPException
 
 from profile_lab.paths import DEFAULT_LAB_ROOT
@@ -26,6 +30,18 @@ from .models import ApprovalRequest
 from .notifications import build_approval_payload
 from .notifications import send_approval_notification
 from .static import mount_frontend
+
+
+ADMIN_TOKEN_ENV = "PO_PROFILE_LAB_ADMIN_TOKEN"
+ADMIN_TOKEN_HEADER = "X-PO-Profile-Lab-Admin-Token"
+
+
+def require_admin_token(token: Optional[str]) -> None:
+    expected_token = os.getenv(ADMIN_TOKEN_ENV)
+    if not expected_token:
+        raise HTTPException(status_code=503, detail=f"{ADMIN_TOKEN_ENV} is not configured")
+    if not token or not hmac.compare_digest(token, expected_token):
+        raise HTTPException(status_code=403, detail="invalid admin token")
 
 
 def create_app(
@@ -69,7 +85,13 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.post("/api/customers/{customer}/runs/{run_id}/approve")
-    def approve(customer: str, run_id: str, request: AdminDecisionRequest):
+    def approve(
+        customer: str,
+        run_id: str,
+        request: AdminDecisionRequest,
+        admin_token: Optional[str] = Header(default=None, alias=ADMIN_TOKEN_HEADER),
+    ):
+        require_admin_token(admin_token)
         try:
             approval = approve_run(run_dir(lab_root, customer, run_id), admin_by=request.actor, note=request.note)
             return dump_model(approval)
@@ -79,7 +101,13 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.post("/api/customers/{customer}/runs/{run_id}/reject")
-    def reject(customer: str, run_id: str, request: AdminDecisionRequest):
+    def reject(
+        customer: str,
+        run_id: str,
+        request: AdminDecisionRequest,
+        admin_token: Optional[str] = Header(default=None, alias=ADMIN_TOKEN_HEADER),
+    ):
+        require_admin_token(admin_token)
         try:
             approval = reject_run(run_dir(lab_root, customer, run_id), admin_by=request.actor, note=request.note)
             return dump_model(approval)
@@ -87,7 +115,12 @@ def create_app(
             raise HTTPException(status_code=404, detail="run not found") from exc
 
     @app.post("/api/customers/{customer}/runs/{run_id}/publish")
-    def publish(customer: str, run_id: str):
+    def publish(
+        customer: str,
+        run_id: str,
+        admin_token: Optional[str] = Header(default=None, alias=ADMIN_TOKEN_HEADER),
+    ):
+        require_admin_token(admin_token)
         try:
             current_run_dir = run_dir(lab_root, customer, run_id)
             approval = load_approval(current_run_dir)

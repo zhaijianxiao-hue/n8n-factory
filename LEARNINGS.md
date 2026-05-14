@@ -328,6 +328,25 @@ SAP SOAP 时间字段检查：
 
 **影响范围**: 所有向 SAP 或其他外部系统发送业务时间戳的 SOAP / HTTP 集成。
 
+### 12. UI 模式不等于服务端审批授权
+
+**问题**: Profile Lab UI 区分了 Business Gate 和 Admin Gate，但早期版本只靠前端 `admin` 模式启用 Approve / Reject / Publish。任何能调用 API 的客户端仍可直接调用审批接口，绕过真实管理员审批。
+
+**根因**: 前端视图状态被当成了权限边界，服务端只校验 `approval.json` 状态，没有校验调用方是否持有管理员授权。
+
+**解决**: Admin Review 的 approve / reject / publish API 增加 `PO_PROFILE_LAB_ADMIN_TOKEN` 环境变量和 `X-PO-Profile-Lab-Admin-Token` 请求头校验；前端 Admin Review 先输入 token 才能打开审批运行并调用管理动作。
+
+**预防规则**:
+```
+审批/上线类动作必须有服务端授权边界：
+1. ✅ 前端 mode / tab / disabled 只做体验控制，不能当权限控制
+2. ✅ approve / reject / publish 这类动作必须在 API 层校验管理员凭证
+3. ✅ CLI publish 也要复用同一份发布门禁，不能绕开 approval.json
+4. ❌ 不要只靠隐藏按钮或前端模式限制上线动作
+```
+
+**影响范围**: 所有内部工作台、审批流、上线发布类 API。
+
 ## 待登记模板
 
 发现新踩坑时，按以下格式添加：

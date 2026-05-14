@@ -16,6 +16,7 @@ import type { CustomerSummary, RunDetail, RunSample, RunSummary } from "./types"
 type LoadState = "loading" | "ready" | "empty" | "error";
 type AppView = "workbench" | "dashboard" | "admin";
 type ApprovalMode = "business" | "admin";
+const ADMIN_TOKEN_STORAGE_KEY = "po-profile-lab-admin-token";
 
 function latestRunId(runs: RunSummary[]): string {
   return runs[0]?.run_id ?? "";
@@ -33,6 +34,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [activeView, setActiveView] = useState<AppView>("workbench");
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>("business");
+  const [adminToken, setAdminToken] = useState(() => window.sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? "");
 
   const selectedSample = useMemo<RunSample | null>(() => {
     if (!runDetail?.samples.length) {
@@ -162,6 +164,11 @@ export default function App() {
   }
 
   async function handleOpenRun(customer: string, runId: string) {
+    if (!adminToken.trim()) {
+      setApprovalMode("business");
+      setError("Admin token is required before opening an approval run.");
+      return;
+    }
     setActiveView("workbench");
     setApprovalMode("admin");
     setSelectedCustomer(customer);
@@ -170,6 +177,16 @@ export default function App() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法加载运行详情");
       setState("error");
+    }
+  }
+
+  function handleAdminTokenChange(token: string) {
+    setAdminToken(token);
+    if (token.trim()) {
+      window.sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token);
+    } else {
+      window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+      setApprovalMode("business");
     }
   }
 
@@ -197,7 +214,9 @@ export default function App() {
       </nav>
 
       {activeView === "dashboard" ? <Dashboard customers={customers} runs={allRuns} /> : null}
-      {activeView === "admin" ? <AdminReview customers={customers} runs={allRuns} onOpenRun={handleOpenRun} /> : null}
+      {activeView === "admin" ? (
+        <AdminReview customers={customers} runs={allRuns} adminToken={adminToken} onAdminTokenChange={handleAdminTokenChange} onOpenRun={handleOpenRun} />
+      ) : null}
 
       <section className={activeView === "workbench" ? "workbench" : "workbench hidden-view"}>
         <RunTopBar
@@ -239,6 +258,7 @@ export default function App() {
                 runId={selectedRunId}
                 approval={runDetail.approval}
                 mode={approvalMode}
+                adminToken={adminToken}
                 onReload={reloadCurrentRun}
               />
             </section>

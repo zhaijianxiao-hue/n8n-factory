@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from profile_lab_ui.api import ADMIN_TOKEN_ENV
+from profile_lab_ui.api import ADMIN_TOKEN_HEADER
 from profile_lab_ui.api import create_app
 from profile_lab_ui.artifacts import ArtifactNotFoundError
 from profile_lab_ui.artifacts import run_dir
@@ -40,6 +42,10 @@ def create_run(root: Path) -> Path:
     write_json(run_dir / "candidates" / "vision" / "sample.json", {"header": {"po_number": "PO-1"}, "items": []})
     write_json(run_dir / "adjudication" / "sample.merged_draft.json", {"header": {"po_number": "PO-1"}, "items": []})
     return run_dir
+
+
+def admin_headers(token: str = "secret-admin-token") -> dict:
+    return {ADMIN_TOKEN_HEADER: token}
 
 
 def test_list_customers_and_runs(tmp_path):
@@ -89,14 +95,15 @@ def test_run_dir_raises_for_missing_path(tmp_path):
         run_dir(lab_root, "evytra", "missing")
 
 
-def test_submit_approve_reject_actions(tmp_path):
+def test_submit_approve_reject_actions(tmp_path, monkeypatch):
+    monkeypatch.setenv(ADMIN_TOKEN_ENV, "secret-admin-token")
     lab_root = tmp_path / "profile-lab"
     create_run(lab_root)
     client = TestClient(create_app(lab_root=lab_root))
 
     submitted = client.post("/api/customers/evytra/runs/run-1/submit", json={"actor": "business", "note": "ready"})
-    approved = client.post("/api/customers/evytra/runs/run-1/approve", json={"actor": "admin", "note": "ok"})
-    rejected = client.post("/api/customers/evytra/runs/run-1/reject", json={"actor": "admin", "note": "fix date"})
+    approved = client.post("/api/customers/evytra/runs/run-1/approve", headers=admin_headers(), json={"actor": "admin", "note": "ok"})
+    rejected = client.post("/api/customers/evytra/runs/run-1/reject", headers=admin_headers(), json={"actor": "admin", "note": "fix date"})
 
     assert submitted.status_code == 200
     assert submitted.json()["state"] == "submitted"
@@ -106,16 +113,47 @@ def test_submit_approve_reject_actions(tmp_path):
     assert rejected.json()["state"] == "changes_requested"
 
 
-def test_publish_requires_admin_approval(tmp_path):
+def test_admin_actions_require_admin_token(tmp_path, monkeypatch):
+    monkeypatch.setenv(ADMIN_TOKEN_ENV, "secret-admin-token")
+    lab_root = tmp_path / "profile-lab"
+    create_run(lab_root)
+    client = TestClient(create_app(lab_root=lab_root))
+
+    missing = client.post("/api/customers/evytra/runs/run-1/approve", json={"actor": "admin", "note": "ok"})
+    wrong = client.post(
+        "/api/customers/evytra/runs/run-1/approve",
+        headers=admin_headers("wrong-token"),
+        json={"actor": "admin", "note": "ok"},
+    )
+
+    assert missing.status_code == 403
+    assert wrong.status_code == 403
+    assert (lab_root / "customers" / "evytra" / "runs" / "run-1" / "approval.json").read_text(encoding="utf-8").find('"approved"') == -1
+
+
+def test_admin_actions_block_when_token_not_configured(tmp_path, monkeypatch):
+    monkeypatch.delenv(ADMIN_TOKEN_ENV, raising=False)
+    lab_root = tmp_path / "profile-lab"
+    create_run(lab_root)
+    client = TestClient(create_app(lab_root=lab_root))
+
+    response = client.post("/api/customers/evytra/runs/run-1/approve", headers=admin_headers(), json={"actor": "admin", "note": "ok"})
+
+    assert response.status_code == 503
+    assert ADMIN_TOKEN_ENV in response.json()["detail"]
+
+
+def test_publish_requires_admin_approval(tmp_path, monkeypatch):
+    monkeypatch.setenv(ADMIN_TOKEN_ENV, "secret-admin-token")
     lab_root = tmp_path / "profile-lab"
     create_run(lab_root)
     write_json(lab_root / "customers" / "evytra" / "profile.json", {"profile_name": "evytra", "version": "0.1.0"})
     client = TestClient(create_app(lab_root=lab_root, production_dir=tmp_path / "profiles"))
 
-    blocked = client.post("/api/customers/evytra/runs/run-1/publish")
+    blocked = client.post("/api/customers/evytra/runs/run-1/publish", headers=admin_headers())
     client.post("/api/customers/evytra/runs/run-1/submit", json={"actor": "business", "note": "ready"})
-    client.post("/api/customers/evytra/runs/run-1/approve", json={"actor": "admin", "note": "ok"})
-    published = client.post("/api/customers/evytra/runs/run-1/publish")
+    client.post("/api/customers/evytra/runs/run-1/approve", headers=admin_headers(), json={"actor": "admin", "note": "ok"})
+    published = client.post("/api/customers/evytra/runs/run-1/publish", headers=admin_headers())
 
     assert blocked.status_code == 409
     assert published.status_code == 200

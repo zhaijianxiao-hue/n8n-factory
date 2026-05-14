@@ -1,10 +1,12 @@
-import { Bell, ExternalLink, Inbox, ShieldAlert } from "lucide-react";
+import { Bell, ExternalLink, Inbox, Lock, ShieldAlert } from "lucide-react";
 
 import type { CustomerSummary, RunSummary } from "../types";
 
 interface AdminReviewProps {
   customers: CustomerSummary[];
   runs: RunSummary[];
+  adminToken: string;
+  onAdminTokenChange: (token: string) => void;
   onOpenRun: (customer: string, runId: string) => void;
 }
 
@@ -30,7 +32,8 @@ function formatDate(value: string | null): string {
   return date.toLocaleString();
 }
 
-export function AdminReview({ customers, runs, onOpenRun }: AdminReviewProps) {
+export function AdminReview({ customers, runs, adminToken, onAdminTokenChange, onOpenRun }: AdminReviewProps) {
+  const isUnlocked = adminToken.trim().length > 0;
   const submittedRuns = runs
     .filter((run) => run.approval?.state === "submitted")
     .sort((left, right) => (right.approval?.submitted_at ?? right.created_at ?? "").localeCompare(left.approval?.submitted_at ?? left.created_at ?? ""));
@@ -43,7 +46,23 @@ export function AdminReview({ customers, runs, onOpenRun }: AdminReviewProps) {
           <h2>Submitted runs waiting for approval</h2>
         </div>
 
-        {submittedRuns.length ? (
+        {!isUnlocked ? (
+          <div className="admin-lock-panel">
+            <Lock size={18} />
+            <div>
+              <strong>Admin token required</strong>
+              <span>Enter the configured review token to unlock approval and publish actions.</span>
+            </div>
+            <input
+              aria-label="Admin token"
+              autoComplete="off"
+              placeholder="PO_PROFILE_LAB_ADMIN_TOKEN"
+              type="password"
+              value={adminToken}
+              onChange={(event) => onAdminTokenChange(event.target.value)}
+            />
+          </div>
+        ) : submittedRuns.length ? (
           <div className="admin-run-list">
             {submittedRuns.map((run) => (
               <article className="admin-run-card" key={`${run.customer}/${run.run_id}`}>

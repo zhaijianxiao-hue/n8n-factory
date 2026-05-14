@@ -9,12 +9,13 @@ interface ApprovalGateProps {
   runId: string;
   approval: ApprovalRecord | null;
   mode: "business" | "admin";
+  adminToken: string;
   onReload: () => Promise<void>;
 }
 
 type ActionName = "submit" | "approve" | "reject" | "publish";
 
-export function ApprovalGate({ customer, runId, approval, mode, onReload }: ApprovalGateProps) {
+export function ApprovalGate({ customer, runId, approval, mode, adminToken, onReload }: ApprovalGateProps) {
   const [busyAction, setBusyAction] = useState<ActionName | null>(null);
   const [error, setError] = useState("");
 
@@ -25,11 +26,11 @@ export function ApprovalGate({ customer, runId, approval, mode, onReload }: Appr
       if (action === "submit") {
         await api.submit(customer, runId, "business", "ready for admin review");
       } else if (action === "approve") {
-        await api.approve(customer, runId, "admin", "approved in review workbench");
+        await api.approve(customer, runId, adminToken, "admin", "approved in review workbench");
       } else if (action === "reject") {
-        await api.reject(customer, runId, "admin", "changes requested in review workbench");
+        await api.reject(customer, runId, adminToken, "admin", "changes requested in review workbench");
       } else {
-        await api.publish(customer, runId);
+        await api.publish(customer, runId, adminToken);
       }
       await onReload();
     } catch (err) {
@@ -40,7 +41,9 @@ export function ApprovalGate({ customer, runId, approval, mode, onReload }: Appr
   }
 
   const isAdminMode = mode === "admin";
-  const publishDisabled = !isAdminMode || approval?.state !== "approved" || busyAction !== null;
+  const hasAdminToken = adminToken.trim().length > 0;
+  const adminActionDisabled = !isAdminMode || !hasAdminToken || busyAction !== null;
+  const publishDisabled = adminActionDisabled || approval?.state !== "approved";
   const actionDisabled = busyAction !== null;
 
   return (
@@ -58,11 +61,11 @@ export function ApprovalGate({ customer, runId, approval, mode, onReload }: Appr
           <Send size={16} />
           <span>{busyAction === "submit" ? "Submitting" : "Submit"}</span>
         </button>
-        <button type="button" onClick={() => runAction("approve")} disabled={!isAdminMode || actionDisabled} title="Approve">
+        <button type="button" onClick={() => runAction("approve")} disabled={adminActionDisabled} title="Approve">
           <Check size={16} />
           <span>{busyAction === "approve" ? "Approving" : "Approve"}</span>
         </button>
-        <button type="button" onClick={() => runAction("reject")} disabled={!isAdminMode || actionDisabled} title="Reject">
+        <button type="button" onClick={() => runAction("reject")} disabled={adminActionDisabled} title="Reject">
           <X size={16} />
           <span>{busyAction === "reject" ? "Rejecting" : "Reject"}</span>
         </button>
@@ -74,7 +77,7 @@ export function ApprovalGate({ customer, runId, approval, mode, onReload }: Appr
 
       {error ? <div className="gate-error">{error}</div> : null}
       <div className="gate-meta">
-        <span>{isAdminMode ? "admin review mode" : "business submission mode"}</span>
+        <span>{isAdminMode && hasAdminToken ? "admin token present" : "business submission mode"}</span>
         <span>{approval?.admin_decision ?? "no admin decision"}</span>
       </div>
     </section>
