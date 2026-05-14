@@ -5,10 +5,11 @@ from typing import Sequence
 from .adjudicator import adjudicate_sample
 from .customer_assets import create_run, init_customer
 from .json_io import write_json
+from .llm_client import OpenAICompatibleJsonClient
 from .paths import DEFAULT_LAB_ROOT
 from .pdf_pages import render_pdf_pages, sample_key_from_pdf
-from .text_candidate import generate_text_candidate
-from .vision_candidate import generate_vision_candidate
+from .text_candidate import generate_text_candidate, generate_text_candidate_with_model
+from .vision_candidate import generate_vision_candidate, generate_vision_candidate_with_model
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,6 +25,8 @@ def build_parser() -> argparse.ArgumentParser:
     draft.add_argument("--customer", required=True)
     draft.add_argument("--run-id", required=True)
     draft.add_argument("--skip-render", action="store_true")
+    draft.add_argument("--text-model", default=None)
+    draft.add_argument("--vision-model", default=None)
 
     evaluate = subparsers.add_parser("evaluate")
     evaluate.add_argument("--customer", required=True)
@@ -39,9 +42,14 @@ def run_draft(
     customer_key: str,
     run_id: str,
     skip_render: bool,
+    text_model: str | None = None,
+    vision_model: str | None = None,
 ) -> Path:
     run = create_run(root=lab_root, customer_key=customer_key, run_id=run_id)
     inputs_dir = run.run_dir / "inputs"
+    customer_dir = lab_root / "customers" / customer_key
+    prompt = (customer_dir / "prompt.md").read_text(encoding="utf-8")
+    model_client = OpenAICompatibleJsonClient() if text_model or vision_model else None
 
     for pdf_path in sorted(inputs_dir.glob("*.pdf")):
         sample_key = sample_key_from_pdf(pdf_path)
@@ -51,8 +59,28 @@ def run_draft(
 
         text_path = run.run_dir / "candidates" / "text" / f"{sample_key}.json"
         vision_path = run.run_dir / "candidates" / "vision" / f"{sample_key}.json"
-        text_candidate = generate_text_candidate(pdf_path)
-        vision_candidate = generate_vision_candidate(pdf_path, page_paths)
+        if text_model and model_client:
+            extracted_text = pdf_path.read_bytes().decode("latin-1", errors="ignore")
+            text_candidate = generate_text_candidate_with_model(
+                pdf_path=pdf_path,
+                extracted_text=extracted_text,
+                prompt=prompt,
+                model=text_model,
+                client=model_client,
+            )
+        else:
+            text_candidate = generate_text_candidate(pdf_path)
+
+        if vision_model and model_client:
+            vision_candidate = generate_vision_candidate_with_model(
+                pdf_path=pdf_path,
+                page_paths=page_paths,
+                prompt=prompt,
+                model=vision_model,
+                client=model_client,
+            )
+        else:
+            vision_candidate = generate_vision_candidate(pdf_path, page_paths)
 
         write_json(text_path, text_candidate)
         write_json(vision_path, vision_candidate)
@@ -86,6 +114,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             customer_key=args.customer,
             run_id=args.run_id,
             skip_render=args.skip_render,
+            text_model=args.text_model,
+            vision_model=args.vision_model,
         )
         print(f"created draft run: {run_dir}")
         return 0

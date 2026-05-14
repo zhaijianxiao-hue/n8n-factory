@@ -6,7 +6,20 @@ import pytest
 
 from profile_lab.commands import main
 from profile_lab.customer_assets import create_run, init_customer
+from profile_lab.llm_client import extract_json_object
 from profile_lab.pdf_pages import sample_key_from_pdf
+from profile_lab.text_candidate import generate_text_candidate_with_model
+from profile_lab.vision_candidate import generate_vision_candidate_with_model
+
+
+class FakeJsonClient:
+    def __init__(self, payload):
+        self.payload = payload
+        self.calls = []
+
+    def create_json(self, messages, model):
+        self.calls.append({"messages": messages, "model": model})
+        return self.payload
 
 
 def test_profile_lab_package_imports():
@@ -161,3 +174,63 @@ def test_draft_command_creates_adjudication_artifacts(tmp_path):
     assert field_evidence["_adjudication"]["human_review_required"] is True
     assert "header" not in field_evidence
     assert "header.po_number" in field_evidence
+
+
+def test_extract_json_object_strips_markdown_fence():
+    content = "```json\n{\"header\": {\"po_number\": \"PO-1\"}, \"items\": []}\n```"
+    assert extract_json_object(content)["header"]["po_number"] == "PO-1"
+
+
+def test_text_candidate_uses_model_client(tmp_path):
+    pdf_path = tmp_path / "po-001.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4\n")
+    client = FakeJsonClient(
+        {
+            "header": {"customer_name": "ACME", "po_number": "PO-1"},
+            "items": [],
+            "confidence": 0.8,
+            "warnings": [],
+        }
+    )
+
+    result = generate_text_candidate_with_model(
+        pdf_path=pdf_path,
+        extracted_text="Purchase Order PO-1",
+        prompt="Return JSON",
+        model="text-model",
+        client=client,
+    )
+
+    assert result["source_file"] == "po-001.pdf"
+    assert result["metadata"]["candidate_source"] == "text"
+    assert result["header"]["po_number"] == "PO-1"
+    assert client.calls[0]["model"] == "text-model"
+
+
+def test_vision_candidate_uses_model_client(tmp_path):
+    pdf_path = tmp_path / "po-001.pdf"
+    page_path = tmp_path / "page-001.png"
+    pdf_path.write_bytes(b"%PDF-1.4\n")
+    page_path.write_bytes(b"png")
+    client = FakeJsonClient(
+        {
+            "header": {"customer_name": "ACME", "po_number": "PO-1"},
+            "items": [],
+            "confidence": 0.9,
+            "warnings": [],
+        }
+    )
+
+    result = generate_vision_candidate_with_model(
+        pdf_path=pdf_path,
+        page_paths=[page_path],
+        prompt="Return JSON",
+        model="vision-model",
+        client=client,
+    )
+
+    assert result["source_file"] == "po-001.pdf"
+    assert result["metadata"]["candidate_source"] == "vision"
+    assert result["metadata"]["page_count"] == 1
+    assert result["header"]["po_number"] == "PO-1"
+    assert client.calls[0]["model"] == "vision-model"
