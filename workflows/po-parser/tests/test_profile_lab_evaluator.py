@@ -74,6 +74,145 @@ def test_evaluate_po_result_blocks_qty_mismatch():
     assert report["blocking_errors"][0]["field"] == "items[0].qty"
 
 
+def test_evaluate_po_result_blocks_publish_when_p1_fields_mismatch():
+    expected = {
+        "header": {
+            "customer_name": "ACME",
+            "po_number": "PO-1",
+            "po_date": "2026-05-14",
+            "currency": "EUR",
+            "total_amount": 100,
+        },
+        "items": [
+            {
+                "customer_material": "MAT-1",
+                "qty": 2,
+                "delivery_date": "2026-06-01",
+                "unit_price": 50,
+                "amount": 100,
+            }
+        ],
+    }
+    actual = {
+        "header": {
+            "customer_name": "ACME",
+            "po_number": "PO-1",
+            "po_date": "2026-05-14",
+            "currency": "USD",
+            "total_amount": 90,
+        },
+        "items": [
+            {
+                "customer_material": "MAT-1",
+                "qty": 2,
+                "delivery_date": "2026-06-01",
+                "unit_price": 45,
+                "amount": 90,
+            }
+        ],
+    }
+
+    report = evaluate_po_result(expected=expected, actual=actual)
+
+    assert report["p0_pass"] is True
+    assert report["publishable"] is False
+    assert report["blocking_errors"] == []
+    assert report["scores"]["p1"] < 0.95
+    assert report["quality_errors"]
+
+
+def test_evaluate_po_result_blocks_publish_when_item_amount_rule_fails():
+    expected = {
+        "header": {"customer_name": "ACME", "po_number": "PO-1", "po_date": "2026-05-14"},
+        "items": [
+            {
+                "customer_material": "MAT-1",
+                "qty": 2,
+                "delivery_date": "2026-06-01",
+                "unit_price": 50,
+                "amount": 100,
+            }
+        ],
+    }
+    actual = {
+        "header": {"customer_name": "ACME", "po_number": "PO-1", "po_date": "2026-05-14"},
+        "items": [
+            {
+                "customer_material": "MAT-1",
+                "qty": 2,
+                "delivery_date": "2026-06-01",
+                "unit_price": 50,
+                "amount": 90,
+            }
+        ],
+    }
+
+    report = evaluate_po_result(expected=expected, actual=actual)
+
+    assert report["p0_pass"] is True
+    assert report["publishable"] is False
+    assert report["scores"]["business_rules"] < 0.95
+    assert any(error["reason"] == "business rule mismatch" for error in report["quality_errors"])
+
+
+def test_evaluate_po_result_blocks_publish_when_item_sum_total_rule_fails():
+    expected = {
+        "header": {
+            "customer_name": "ACME",
+            "po_number": "PO-1",
+            "po_date": "2026-05-14",
+            "total_amount": 100,
+        },
+        "items": [
+            {
+                "customer_material": "MAT-1",
+                "qty": 1,
+                "delivery_date": "2026-06-01",
+                "unit_price": 40,
+                "amount": 40,
+            },
+            {
+                "customer_material": "MAT-2",
+                "qty": 1,
+                "delivery_date": "2026-06-02",
+                "unit_price": 60,
+                "amount": 60,
+            },
+        ],
+    }
+    actual = {
+        "header": {
+            "customer_name": "ACME",
+            "po_number": "PO-1",
+            "po_date": "2026-05-14",
+            "total_amount": 90,
+        },
+        "items": [
+            {
+                "customer_material": "MAT-1",
+                "qty": 1,
+                "delivery_date": "2026-06-01",
+                "unit_price": 40,
+                "amount": 40,
+            },
+            {
+                "customer_material": "MAT-2",
+                "qty": 1,
+                "delivery_date": "2026-06-02",
+                "unit_price": 60,
+                "amount": 60,
+            },
+        ],
+    }
+
+    report = evaluate_po_result(expected=expected, actual=actual)
+
+    assert report["p0_pass"] is True
+    assert report["publishable"] is False
+    assert report["scores"]["business_rules"] < 0.95
+    assert any(error["field"] == "header.total_amount" for error in report["quality_errors"])
+
+
 def test_evaluate_po_result_requires_exact_numeric_qty_match():
     expected = {
         "header": {"customer_name": "ACME", "po_number": "PO-1", "po_date": "2026-05-14"},

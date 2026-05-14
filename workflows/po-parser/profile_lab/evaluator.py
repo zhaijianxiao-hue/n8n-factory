@@ -5,6 +5,8 @@ from typing import Any
 
 P0_HEADER_FIELDS = ["customer_name", "po_number", "po_date"]
 P0_ITEM_FIELDS = ["customer_material", "qty", "delivery_date"]
+P1_HEADER_FIELDS = ["currency", "total_amount"]
+P1_ITEM_FIELDS = ["unit_price", "amount", "unit", "customer_release_no", "sap_material"]
 
 
 def normalize_value(value: Any) -> Any:
@@ -26,6 +28,27 @@ def numbers_equal(expected: Any, actual: Any, tolerance: float = 0.0) -> bool:
     return math.isclose(expected_number, actual_number, rel_tol=0.0, abs_tol=tolerance)
 
 
+def to_number(value: Any) -> float | None:
+    if isinstance(value, bool) or is_empty(value):
+        return None
+    if isinstance(value, str):
+        value = normalize_value(value).replace(",", "")
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number):
+        return None
+    return number
+
+
+def total_amount_tolerance(value: Any) -> float:
+    number = to_number(value)
+    if number is None:
+        return 0.10
+    return max(0.10, abs(number) * 0.0001)
+
+
 def values_equal(field: str, expected: Any, actual: Any) -> bool:
     if field in {"qty"}:
         return numbers_equal(expected, actual, tolerance=0.0)
@@ -34,11 +57,7 @@ def values_equal(field: str, expected: Any, actual: Any) -> bool:
     if field in {"amount"}:
         return numbers_equal(expected, actual, tolerance=0.05)
     if field in {"total_amount"}:
-        try:
-            tolerance = max(0.10, abs(float(expected)) * 0.0001)
-        except (TypeError, ValueError):
-            tolerance = 0.10
-        return numbers_equal(expected, actual, tolerance=tolerance)
+        return numbers_equal(expected, actual, tolerance=total_amount_tolerance(expected))
     return normalize_value(expected) == normalize_value(actual)
 
 
@@ -57,6 +76,131 @@ def add_blocking_error(
             "reason": reason,
         }
     )
+
+
+def add_quality_error(
+    errors: list[dict],
+    field: str,
+    expected: Any,
+    actual: Any,
+    reason: str,
+) -> None:
+    errors.append(
+        {
+            "field": field,
+            "expected": expected,
+            "actual": actual,
+            "reason": reason,
+        }
+    )
+
+
+def score_ratio(scored_count: int, failed_count: int) -> float:
+    if scored_count == 0:
+        return 1.0
+    return (scored_count - failed_count) / scored_count
+
+
+def calculate_p1_score(
+    expected_header: dict,
+    actual_header: dict,
+    expected_items: list[dict],
+    actual_items: list[dict],
+    quality_errors: list[dict],
+) -> float:
+    scored_count = 0
+    failed_count = 0
+
+    for field in P1_HEADER_FIELDS:
+        expected_value = expected_header.get(field)
+        if is_empty(expected_value):
+            continue
+        scored_count += 1
+        actual_value = actual_header.get(field)
+        if values_equal(field, expected_value, actual_value):
+            continue
+        failed_count += 1
+        add_quality_error(
+            quality_errors,
+            f"header.{field}",
+            expected_value,
+            actual_value,
+            "P1 field mismatch",
+        )
+
+    for index, expected_item in enumerate(expected_items):
+        actual_item = actual_items[index] if index < len(actual_items) else {}
+        for field in P1_ITEM_FIELDS:
+            expected_value = expected_item.get(field)
+            if is_empty(expected_value):
+                continue
+            scored_count += 1
+            actual_value = actual_item.get(field)
+            if values_equal(field, expected_value, actual_value):
+                continue
+            failed_count += 1
+            add_quality_error(
+                quality_errors,
+                f"items[{index}].{field}",
+                expected_value,
+                actual_value,
+                "P1 field mismatch",
+            )
+
+    return score_ratio(scored_count, failed_count)
+
+
+def calculate_business_rule_score(
+    actual_header: dict,
+    actual_items: list[dict],
+    quality_errors: list[dict],
+) -> float:
+    scored_count = 0
+    failed_count = 0
+
+    for index, item in enumerate(actual_items):
+        qty = to_number(item.get("qty"))
+        unit_price = to_number(item.get("unit_price"))
+        amount = to_number(item.get("amount"))
+        if qty is None or unit_price is None or amount is None:
+            continue
+        scored_count += 1
+        expected_amount = qty * unit_price
+        if numbers_equal(expected_amount, amount, tolerance=0.05):
+            continue
+        failed_count += 1
+        add_quality_error(
+            quality_errors,
+            f"items[{index}].amount",
+            expected_amount,
+            item.get("amount"),
+            "business rule mismatch",
+        )
+
+    total_amount = to_number(actual_header.get("total_amount"))
+    item_amounts = [to_number(item.get("amount")) for item in actual_items]
+    if (
+        total_amount is not None
+        and item_amounts
+        and all(amount is not None for amount in item_amounts)
+    ):
+        scored_count += 1
+        expected_total = sum(amount for amount in item_amounts if amount is not None)
+        if not numbers_equal(
+            expected_total,
+            total_amount,
+            tolerance=total_amount_tolerance(total_amount),
+        ):
+            failed_count += 1
+            add_quality_error(
+                quality_errors,
+                "header.total_amount",
+                expected_total,
+                actual_header.get("total_amount"),
+                "business rule mismatch",
+            )
+
+    return score_ratio(scored_count, failed_count)
 
 
 def normalize_item_rows(items: list[Any], errors: list[dict]) -> list[dict]:
@@ -118,6 +262,7 @@ def add_required_field_error(
 
 def evaluate_po_result(expected: dict, actual: dict) -> dict:
     blocking_errors: list[dict] = []
+    quality_errors: list[dict] = []
     schema_pass = True
 
     expected_header = expected.get("header")
@@ -197,8 +342,18 @@ def evaluate_po_result(expected: dict, actual: dict) -> dict:
                 )
 
     p0_pass = len(blocking_errors) == 0
-    p1_score = 1.0
-    business_rule_score = 1.0
+    p1_score = calculate_p1_score(
+        expected_header=expected_header,
+        actual_header=actual_header,
+        expected_items=expected_items,
+        actual_items=actual_items,
+        quality_errors=quality_errors,
+    )
+    business_rule_score = calculate_business_rule_score(
+        actual_header=actual_header,
+        actual_items=actual_items,
+        quality_errors=quality_errors,
+    )
     publishable = (
         schema_pass
         and p0_pass
@@ -220,5 +375,6 @@ def evaluate_po_result(expected: dict, actual: dict) -> dict:
             "business_rules": business_rule_score,
         },
         "blocking_errors": blocking_errors,
+        "quality_errors": quality_errors,
         "recommendation": "publishable" if publishable else "not_publishable",
     }
