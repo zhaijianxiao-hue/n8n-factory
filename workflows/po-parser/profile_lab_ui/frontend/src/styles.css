@@ -52,6 +52,35 @@ select {
   padding: 18px;
 }
 
+.view-tabs {
+  display: inline-flex;
+  max-width: 100%;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: rgba(3, 10, 12, 0.72);
+  margin-bottom: 12px;
+  padding: 6px;
+}
+
+.view-tabs button {
+  min-height: 34px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 13px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.view-tabs button:hover,
+.view-tabs button.active {
+  border-color: rgba(35, 214, 209, 0.42);
+  background: var(--cyan-soft);
+  color: var(--cyan);
+}
+
 .workbench {
   min-height: calc(100vh - 36px);
   display: grid;
@@ -61,6 +90,10 @@ select {
   background: linear-gradient(180deg, rgba(16, 37, 41, 0.94), rgba(6, 16, 18, 0.98));
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
   padding: 14px;
+}
+
+.hidden-view {
+  display: none;
 }
 
 .run-topbar {
@@ -208,11 +241,255 @@ h2 {
 }
 
 .score-cell,
+.metric-card,
+.console-panel,
 .pane,
 .workbench-state,
 .sample-tab {
   border: 1px solid var(--line-soft);
   background: rgba(6, 16, 18, 0.78);
+}
+
+.dashboard-view,
+.admin-review-view {
+  min-height: calc(100vh - 94px);
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(16, 37, 41, 0.94), rgba(6, 16, 18, 0.98));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+  padding: 14px;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric-card {
+  min-width: 0;
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 6px 8px;
+  align-items: center;
+  padding: 12px;
+}
+
+.metric-card svg,
+.blocker-row svg,
+.admin-run-main svg {
+  color: var(--cyan);
+}
+
+.metric-card span,
+.run-row span,
+.run-row time,
+.admin-run-meta dt,
+.admin-run-meta dd,
+.compact-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.metric-card strong {
+  grid-column: 1 / -1;
+  color: var(--text);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.dashboard-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.8fr);
+  gap: 12px;
+}
+
+.console-panel {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px;
+}
+
+.panel-title {
+  display: grid;
+  gap: 5px;
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: 10px;
+}
+
+.run-table,
+.blocker-list,
+.admin-run-list {
+  display: grid;
+  gap: 8px;
+}
+
+.run-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(130px, 1fr) 70px 82px 120px minmax(140px, 0.9fr);
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid rgba(30, 69, 75, 0.42);
+  padding: 8px 0;
+}
+
+.run-row > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-row strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.state-pill {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(35, 214, 209, 0.38);
+  color: var(--cyan);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.blocker-row {
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 34px;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(255, 111, 97, 0.28);
+  background: rgba(255, 111, 97, 0.06);
+  padding: 8px;
+}
+
+.blocker-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.blocker-row strong {
+  color: var(--danger);
+  text-align: right;
+}
+
+.compact-empty {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed var(--line-soft);
+  padding: 12px;
+}
+
+.compact-empty svg {
+  flex: 0 0 auto;
+  color: var(--cyan);
+}
+
+.review-queue-panel {
+  align-self: start;
+}
+
+.admin-run-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(190px, 0.75fr) minmax(420px, 1.5fr) 92px;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line-soft);
+  background: rgba(3, 10, 12, 0.44);
+  padding: 12px;
+}
+
+.admin-run-main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+}
+
+.admin-run-main div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-run-main strong {
+  min-width: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.admin-run-meta {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 70px 70px minmax(110px, 1fr) minmax(130px, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.admin-run-meta div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-run-meta dt {
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.admin-run-meta dd {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.open-run-button {
+  min-width: 0;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid rgba(35, 214, 209, 0.42);
+  background: rgba(35, 214, 209, 0.1);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.open-run-button:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.open-run-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-empty {
+  max-width: 420px;
 }
 
 .score-cell {
@@ -688,6 +965,24 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .dashboard-grid,
+  .admin-run-card {
+    grid-template-columns: 1fr;
+  }
+
+  .run-row {
+    grid-template-columns: minmax(110px, 0.9fr) minmax(130px, 1fr) 70px;
+  }
+
+  .run-row span:nth-of-type(2),
+  .run-row time {
+    display: none;
+  }
+
+  .admin-run-meta {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .review-grid {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: minmax(300px, auto) minmax(300px, auto) minmax(220px, auto);
@@ -713,7 +1008,25 @@ code {
     padding: 10px;
   }
 
+  .view-tabs {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .view-tabs button {
+    padding: 0 6px;
+  }
+
+  .dashboard-view,
+  .admin-review-view {
+    min-height: calc(100vh - 86px);
+    padding: 10px;
+  }
+
   .topbar-controls,
+  .metric-grid,
+  .admin-run-meta,
   .score-strip,
   .review-grid,
   .diff-values,

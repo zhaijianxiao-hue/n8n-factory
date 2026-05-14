@@ -3,8 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { api } from "./api";
 import { AdjudicationPanel } from "./components/AdjudicationPanel";
+import { AdminReview } from "./components/AdminReview";
 import { ApprovalGate } from "./components/ApprovalGate";
 import { CandidateDiffPane } from "./components/CandidateDiffPane";
+import { Dashboard } from "./components/Dashboard";
 import { PdfEvidencePane } from "./components/PdfEvidencePane";
 import { RunTopBar } from "./components/RunTopBar";
 import { ScoreStrip } from "./components/ScoreStrip";
@@ -12,6 +14,7 @@ import { StandardJsonPane } from "./components/StandardJsonPane";
 import type { CustomerSummary, RunDetail, RunSample, RunSummary } from "./types";
 
 type LoadState = "loading" | "ready" | "empty" | "error";
+type AppView = "workbench" | "dashboard" | "admin";
 
 function latestRunId(runs: RunSummary[]): string {
   return runs[0]?.run_id ?? "";
@@ -20,12 +23,14 @@ function latestRunId(runs: RunSummary[]): string {
 export default function App() {
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [allRuns, setAllRuns] = useState<RunSummary[]>([]);
   const [runDetail, setRunDetail] = useState<RunDetail | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedRunId, setSelectedRunId] = useState("");
   const [selectedSampleKey, setSelectedSampleKey] = useState("");
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState("");
+  const [activeView, setActiveView] = useState<AppView>("workbench");
 
   const selectedSample = useMemo<RunSample | null>(() => {
     if (!runDetail?.samples.length) {
@@ -41,12 +46,17 @@ export default function App() {
     setState("ready");
   }, []);
 
+  const mergeRunsForCustomer = useCallback((customer: string, nextRuns: RunSummary[]) => {
+    setAllRuns((currentRuns) => [...currentRuns.filter((run) => run.customer !== customer), ...nextRuns]);
+  }, []);
+
   const loadRunsForCustomer = useCallback(
     async (customer: string, preferredRunId = "") => {
       setState("loading");
       setError("");
       const nextRuns = await api.runs(customer);
       setRuns(nextRuns);
+      mergeRunsForCustomer(customer, nextRuns);
       const runId = preferredRunId || latestRunId(nextRuns);
       setSelectedRunId(runId);
       if (!runId) {
@@ -57,15 +67,18 @@ export default function App() {
       }
       await loadRunDetail(customer, runId);
     },
-    [loadRunDetail]
+    [loadRunDetail, mergeRunsForCustomer]
   );
 
   const reloadCurrentRun = useCallback(async () => {
     if (!selectedCustomer || !selectedRunId) {
       return;
     }
+    const nextRuns = await api.runs(selectedCustomer);
+    setRuns(nextRuns);
+    mergeRunsForCustomer(selectedCustomer, nextRuns);
     await loadRunDetail(selectedCustomer, selectedRunId);
-  }, [loadRunDetail, selectedCustomer, selectedRunId]);
+  }, [loadRunDetail, mergeRunsForCustomer, selectedCustomer, selectedRunId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,13 +91,35 @@ export default function App() {
           return;
         }
         setCustomers(customerRows);
-        const firstCustomer = customerRows.find((customer) => customer.run_count > 0) ?? customerRows[0];
+        const runGroups = await Promise.all(
+          customerRows.map(async (customer) => ({
+            customer: customer.customer_key,
+            runs: await api.runs(customer.customer_key)
+          }))
+        );
+        if (cancelled) {
+          return;
+        }
+        setAllRuns(runGroups.flatMap((group) => group.runs));
+        const firstCustomer =
+          customerRows.find((customer) => runGroups.some((group) => group.customer === customer.customer_key && group.runs.length > 0)) ??
+          customerRows[0];
         if (!firstCustomer) {
           setState("empty");
           return;
         }
         setSelectedCustomer(firstCustomer.customer_key);
-        await loadRunsForCustomer(firstCustomer.customer_key);
+        const firstRuns = runGroups.find((group) => group.customer === firstCustomer.customer_key)?.runs ?? [];
+        setRuns(firstRuns);
+        const firstRunId = latestRunId(firstRuns);
+        setSelectedRunId(firstRunId);
+        if (!firstRunId) {
+          setRunDetail(null);
+          setSelectedSampleKey("");
+          setState("empty");
+          return;
+        }
+        await loadRunDetail(firstCustomer.customer_key, firstRunId);
       } catch (err) {
         if (cancelled) {
           return;
@@ -99,7 +134,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [loadRunsForCustomer]);
+  }, [loadRunDetail]);
 
   async function handleCustomerChange(customer: string) {
     setSelectedCustomer(customer);
@@ -122,11 +157,37 @@ export default function App() {
     }
   }
 
+  async function handleOpenRun(customer: string, runId: string) {
+    setActiveView("workbench");
+    setSelectedCustomer(customer);
+    try {
+      await loadRunsForCustomer(customer, runId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "无法加载运行详情");
+      setState("error");
+    }
+  }
+
   const hasWorkbench = state === "ready" && runDetail && selectedCustomer && selectedRunId;
 
   return (
     <main className="app-shell">
-      <section className="workbench">
+      <nav className="view-tabs" aria-label="Profile Lab views">
+        <button className={activeView === "workbench" ? "active" : ""} type="button" onClick={() => setActiveView("workbench")}>
+          Workbench
+        </button>
+        <button className={activeView === "dashboard" ? "active" : ""} type="button" onClick={() => setActiveView("dashboard")}>
+          Dashboard
+        </button>
+        <button className={activeView === "admin" ? "active" : ""} type="button" onClick={() => setActiveView("admin")}>
+          Admin Review
+        </button>
+      </nav>
+
+      {activeView === "dashboard" ? <Dashboard customers={customers} runs={allRuns} /> : null}
+      {activeView === "admin" ? <AdminReview customers={customers} runs={allRuns} onOpenRun={handleOpenRun} /> : null}
+
+      <section className={activeView === "workbench" ? "workbench" : "workbench hidden-view"}>
         <RunTopBar
           customers={customers}
           runs={runs}
