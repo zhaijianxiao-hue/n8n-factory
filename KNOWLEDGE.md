@@ -36,12 +36,16 @@
 |------|------|------|------|
 | po-parser service | `workflows/po-parser/service/` | 8765 | PO PDF 解析主服务，供 n8n 调用解析接口 |
 | po-parser /check-email | `workflows/po-parser/service/` | 8765 | Exchange EWS 拉取邮件附件到 incoming 目录 |
+| po-parser profile lab UI | `workflows/po-parser/profile_lab_ui/` | 8768 | Profile Lab 审核/评测 UI，FastAPI 提供 API 并托管构建后的前端 |
 | metal-price-sync service | `workflows/metal-price-sync/service/` | 8766 | 金属价格同步服务，提供价格抓取与 SOAP body 生成接口 |
 
 - `po-parser profile lab` (`workflows/po-parser/profile_lab/` + `workflows/po-parser/profile-lab/`)
   - 本地优先的客户 PO 解析 Profile 训练/评测/调优核心
   - 命令入口：`cd workflows/po-parser && python -m profile_lab init-customer --customer evytra`
   - 产物：customer assets、runs、candidate JSON、adjudication reports、evaluation reports、published profiles
+  - UI 服务：`cd workflows/po-parser && python -m profile_lab_ui`，默认端口 `8768`
+  - 审批通知：设置 `PO_PROFILE_LAB_APPROVAL_WEBHOOK_URL` 后，提交审批时发送 webhook
+  - 管理员动作：`approve` / `reject` / `publish` 需要设置 `PO_PROFILE_LAB_ADMIN_TOKEN`，前端通过 `X-PO-Profile-Lab-Admin-Token` 调用
 
 ### 踩坑记录
 
