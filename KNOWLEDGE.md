@@ -38,6 +38,11 @@
 | po-parser /check-email | `workflows/po-parser/service/` | 8765 | Exchange EWS 拉取邮件附件到 incoming 目录 |
 | metal-price-sync service | `workflows/metal-price-sync/service/` | 8766 | 金属价格同步服务，提供价格抓取与 SOAP body 生成接口 |
 
+- `po-parser profile lab` (`workflows/po-parser/profile_lab/` + `workflows/po-parser/profile-lab/`)
+  - 本地优先的客户 PO 解析 Profile 训练/评测/调优核心
+  - 命令入口：`cd workflows/po-parser && python -m profile_lab init-customer --customer evytra`
+  - 产物：customer assets、runs、candidate JSON、adjudication reports、evaluation reports、published profiles
+
 ### 踩坑记录
 
 - `LEARNINGS.md` - 所有踩坑汇总
