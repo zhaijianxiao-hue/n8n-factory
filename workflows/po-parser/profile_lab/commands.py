@@ -4,7 +4,8 @@ from typing import Sequence
 
 from .adjudicator import adjudicate_sample
 from .customer_assets import create_run, init_customer
-from .json_io import write_json
+from .evaluator import evaluate_po_result
+from .json_io import read_json, write_json
 from .llm_client import OpenAICompatibleJsonClient
 from .paths import DEFAULT_LAB_ROOT
 from .pdf_pages import render_pdf_pages, sample_key_from_pdf
@@ -34,6 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     evaluate = subparsers.add_parser("evaluate")
     evaluate.add_argument("--customer", required=True)
+    evaluate.add_argument("--run-id", required=True)
 
     publish = subparsers.add_parser("publish")
     publish.add_argument("--customer", required=True)
@@ -98,6 +100,57 @@ def run_draft(
     return run.run_dir
 
 
+def run_evaluate(lab_root: Path, customer_key: str, run_id: str) -> Path:
+    customer_dir = lab_root / "customers" / customer_key
+    run_dir = customer_dir / "runs" / run_id
+    expected_dir = customer_dir / "expected"
+    adjudication_dir = run_dir / "adjudication"
+    evaluation_dir = run_dir / "evaluation"
+    evaluation_dir.mkdir(parents=True, exist_ok=True)
+
+    sample_reports = []
+    for expected_path in sorted(expected_dir.glob("*.json")):
+        sample_key = expected_path.stem
+        actual_path = adjudication_dir / f"{sample_key}.merged_draft.json"
+        report = evaluate_po_result(
+            expected=read_json(expected_path),
+            actual=read_json(actual_path),
+        )
+        write_json(evaluation_dir / f"{sample_key}.report.json", report)
+        sample_reports.append(
+            {
+                "sample_key": sample_key,
+                "report_path": f"{sample_key}.report.json",
+                "publishable": report["publishable"],
+                "overall_score": report["overall_score"],
+                "blocking_errors": report["blocking_errors"],
+            }
+        )
+
+    publishable = bool(sample_reports) and all(report["publishable"] for report in sample_reports)
+    summary = {
+        "customer": customer_key,
+        "run_id": run_id,
+        "sample_count": len(sample_reports),
+        "publishable": publishable,
+        "reports": sample_reports,
+    }
+    write_json(evaluation_dir / "summary.json", summary)
+    (evaluation_dir / "summary.md").write_text(
+        "\n".join(
+            [
+                f"# Evaluation Summary: {customer_key} / {run_id}",
+                "",
+                f"- Sample count: {len(sample_reports)}",
+                f"- Publishable: {publishable}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return evaluation_dir
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -122,6 +175,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             vision_model=args.vision_model,
         )
         print(f"created draft run: {run_dir}")
+        return 0
+
+    if args.command == "evaluate":
+        evaluation_dir = run_evaluate(
+            lab_root=lab_root,
+            customer_key=args.customer,
+            run_id=args.run_id,
+        )
+        print(f"wrote evaluation: {evaluation_dir}")
         return 0
 
     parser.error(f"unsupported command reached: {args.command}")

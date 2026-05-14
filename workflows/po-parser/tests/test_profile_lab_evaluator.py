@@ -1,4 +1,9 @@
+import json
+
+from profile_lab.commands import main
+from profile_lab.customer_assets import init_customer
 from profile_lab.evaluator import evaluate_po_result, normalize_value
+from profile_lab.json_io import write_json
 
 
 def test_normalize_value_collapses_string_whitespace():
@@ -176,3 +181,34 @@ def test_evaluate_po_result_blocks_malformed_expected_item_row_without_exception
         error["field"] == "items[0]" and error["reason"] == "schema shape mismatch"
         for error in report["blocking_errors"]
     )
+
+
+def test_evaluate_command_writes_summary(tmp_path):
+    root = tmp_path / "profile-lab"
+    init_customer(root=root, customer_key="acme", display_name="ACME Corp")
+    customer_dir = root / "customers" / "acme"
+    expected = {
+        "header": {"customer_name": "ACME", "po_number": "PO-1", "po_date": "2026-05-14"},
+        "items": [{"customer_material": "MAT-1", "qty": 2, "delivery_date": "2026-06-01"}],
+    }
+    write_json(customer_dir / "expected" / "po-001.json", expected)
+    write_json(
+        customer_dir / "runs" / "run-1" / "adjudication" / "po-001.merged_draft.json",
+        expected,
+    )
+
+    exit_code = main([
+        "--lab-root",
+        str(root),
+        "evaluate",
+        "--customer",
+        "acme",
+        "--run-id",
+        "run-1",
+    ])
+
+    assert exit_code == 0
+    summary_path = customer_dir / "runs" / "run-1" / "evaluation" / "summary.json"
+    assert summary_path.is_file()
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["publishable"] is True
