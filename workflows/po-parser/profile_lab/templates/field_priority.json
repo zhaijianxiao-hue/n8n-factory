@@ -1,0 +1,33 @@
+{
+  "p0": [
+    "header.customer_name",
+    "header.po_number",
+    "header.po_date",
+    "items.customer_material",
+    "items.qty",
+    "items.delivery_date"
+  ],
+  "p1": [
+    "header.currency",
+    "header.total_amount",
+    "items.unit_price",
+    "items.amount",
+    "items.unit",
+    "items.customer_release_no",
+    "items.sap_material"
+  ],
+  "p2": [
+    "header.customer_contact_person",
+    "header.customer_contact_phone",
+    "header.customer_contact_email",
+    "header.buyer_address",
+    "header.supplier_address",
+    "header.payment_terms",
+    "header.delivery_terms",
+    "header.shipment_mode",
+    "header.production_note",
+    "header.packaging_note",
+    "items.description_raw",
+    "items.article_raw"
+  ]
+}
