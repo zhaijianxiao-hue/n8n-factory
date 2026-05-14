@@ -115,13 +115,11 @@ Do not start by guessing from old docs or only reading `workflow.json`. The pars
 - `docs/`: architecture, development, and deployment docs.
 - `test-pdfs/`: sample PDF inputs and generated output JSON.
 
-## Rule Files
+## Instruction Files
 
-- No root `AGENTS.md` existed when this file was written.
-- No `.cursorrules` file was found.
-- No `.cursor/rules/` directory was found.
-- No `.github/copilot-instructions.md` file was found.
-- If any of those files are added later, treat them as higher-priority repository instructions and update this file to reflect them.
+- `AGENTS.md` is the canonical project instruction file for Codex and other coding agents.
+- `CLAUDE.md` may exist as a Claude Code compatibility entrypoint, but project rules should be maintained here first.
+- If `.cursorrules`, `.cursor/rules/`, `.github/copilot-instructions.md`, or product-level instruction files are added later, read them as tool- or scope-specific supplements and keep this file updated.
 
 ## Environment Expectations
 
@@ -272,6 +270,66 @@ These values are intentionally repeated here so a new session can immediately in
 - When catching broad exceptions, include enough context for debugging and avoid silently swallowing errors.
 - Prefer returning structured error details when a downstream n8n node needs to branch on status.
 - Keep warnings separate from hard errors when partial extraction is acceptable.
+
+## Behavioral Guidelines
+
+These guidelines reduce common LLM coding mistakes. They bias toward caution over speed. For trivial tasks, use judgment.
+
+### 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+### 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+### 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+### 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" -> "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" -> "Write a test that reproduces it, then make it pass"
+- "Refactor X" -> "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] -> verify: [check]
+2. [Step] -> verify: [check]
+3. [Step] -> verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
 ## External Services
 
