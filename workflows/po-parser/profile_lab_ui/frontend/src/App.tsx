@@ -1,107 +1,181 @@
-import { Activity, AlertTriangle, Database, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertTriangle, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { api } from "./api";
-import type { CustomerSummary } from "./types";
+import { AdjudicationPanel } from "./components/AdjudicationPanel";
+import { ApprovalGate } from "./components/ApprovalGate";
+import { CandidateDiffPane } from "./components/CandidateDiffPane";
+import { PdfEvidencePane } from "./components/PdfEvidencePane";
+import { RunTopBar } from "./components/RunTopBar";
+import { ScoreStrip } from "./components/ScoreStrip";
+import { StandardJsonPane } from "./components/StandardJsonPane";
+import type { CustomerSummary, RunDetail, RunSample, RunSummary } from "./types";
 
-type LoadState = "loading" | "ready" | "error";
+type LoadState = "loading" | "ready" | "empty" | "error";
+
+function latestRunId(runs: RunSummary[]): string {
+  return runs[0]?.run_id ?? "";
+}
 
 export default function App() {
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
+  const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [runDetail, setRunDetail] = useState<RunDetail | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState("");
+  const [selectedRunId, setSelectedRunId] = useState("");
+  const [selectedSampleKey, setSelectedSampleKey] = useState("");
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState("");
+
+  const selectedSample = useMemo<RunSample | null>(() => {
+    if (!runDetail?.samples.length) {
+      return null;
+    }
+    return runDetail.samples.find((sample) => sample.sample_key === selectedSampleKey) ?? runDetail.samples[0];
+  }, [runDetail, selectedSampleKey]);
+
+  const loadRunDetail = useCallback(async (customer: string, runId: string) => {
+    const detail = await api.run(customer, runId);
+    setRunDetail(detail);
+    setSelectedSampleKey(detail.samples[0]?.sample_key ?? "");
+    setState("ready");
+  }, []);
+
+  const loadRunsForCustomer = useCallback(
+    async (customer: string, preferredRunId = "") => {
+      setState("loading");
+      setError("");
+      const nextRuns = await api.runs(customer);
+      setRuns(nextRuns);
+      const runId = preferredRunId || latestRunId(nextRuns);
+      setSelectedRunId(runId);
+      if (!runId) {
+        setRunDetail(null);
+        setSelectedSampleKey("");
+        setState("empty");
+        return;
+      }
+      await loadRunDetail(customer, runId);
+    },
+    [loadRunDetail]
+  );
+
+  const reloadCurrentRun = useCallback(async () => {
+    if (!selectedCustomer || !selectedRunId) {
+      return;
+    }
+    await loadRunDetail(selectedCustomer, selectedRunId);
+  }, [loadRunDetail, selectedCustomer, selectedRunId]);
 
   useEffect(() => {
     let cancelled = false;
 
-    api
-      .customers()
-      .then((rows) => {
+    async function loadInitialWorkbench() {
+      try {
+        setState("loading");
+        const customerRows = await api.customers();
         if (cancelled) {
           return;
         }
-        setCustomers(rows);
-        setState("ready");
-      })
-      .catch((err: unknown) => {
+        setCustomers(customerRows);
+        const firstCustomer = customerRows.find((customer) => customer.run_count > 0) ?? customerRows[0];
+        if (!firstCustomer) {
+          setState("empty");
+          return;
+        }
+        setSelectedCustomer(firstCustomer.customer_key);
+        await loadRunsForCustomer(firstCustomer.customer_key);
+      } catch (err) {
         if (cancelled) {
           return;
         }
-        setError(err instanceof Error ? err.message : "无法加载客户列表");
+        setError(err instanceof Error ? err.message : "无法加载 Review Workbench");
         setState("error");
-      });
+      }
+    }
+
+    loadInitialWorkbench();
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadRunsForCustomer]);
 
-  const runCount = customers.reduce((total, customer) => total + customer.run_count, 0);
+  async function handleCustomerChange(customer: string) {
+    setSelectedCustomer(customer);
+    try {
+      await loadRunsForCustomer(customer);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "无法加载客户运行记录");
+      setState("error");
+    }
+  }
+
+  async function handleRunChange(runId: string) {
+    setSelectedRunId(runId);
+    try {
+      setState("loading");
+      await loadRunDetail(selectedCustomer, runId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "无法加载运行详情");
+      setState("error");
+    }
+  }
+
+  const hasWorkbench = state === "ready" && runDetail && selectedCustomer && selectedRunId;
 
   return (
     <main className="app-shell">
-      <section className="console">
-        <header className="console-header">
-          <div>
-            <p className="eyebrow">PROFILE CONTROL</p>
-            <h1>PO Profile Lab</h1>
-          </div>
-          <div className={`status-pill status-${state}`}>
-            {state === "loading" ? <Loader2 size={16} className="spin" /> : null}
-            {state === "ready" ? <Activity size={16} /> : null}
-            {state === "error" ? <AlertTriangle size={16} /> : null}
-            <span>{state === "loading" ? "SYNCING" : state === "ready" ? "ONLINE" : "CHECK API"}</span>
-          </div>
-        </header>
+      <section className="workbench">
+        <RunTopBar
+          customers={customers}
+          runs={runs}
+          selectedCustomer={selectedCustomer}
+          selectedRunId={selectedRunId}
+          approval={runDetail?.approval ?? null}
+          onCustomerChange={handleCustomerChange}
+          onRunChange={handleRunChange}
+        />
 
-        <div className="meter-grid">
-          <article className="metric-panel">
-            <Database size={22} />
-            <span>Customers</span>
-            <strong>{state === "loading" ? "--" : customers.length}</strong>
-          </article>
-          <article className="metric-panel">
-            <Activity size={22} />
-            <span>Runs</span>
-            <strong>{state === "loading" ? "--" : runCount}</strong>
-          </article>
-        </div>
+        {hasWorkbench ? (
+          <>
+            <ScoreStrip evaluation={runDetail.evaluation} samples={runDetail.samples} approval={runDetail.approval} />
 
-        <section className="feed-panel" aria-live="polite">
-          {state === "loading" ? (
-            <div className="feed-row">
-              <Loader2 size={18} className="spin" />
-              <span>正在读取客户 profile 资产...</span>
-            </div>
-          ) : null}
+            <section className="sample-rail" aria-label="Samples">
+              {runDetail.samples.map((sample) => (
+                <button
+                  className={sample.sample_key === selectedSample?.sample_key ? "sample-tab active" : "sample-tab"}
+                  key={sample.sample_key}
+                  type="button"
+                  onClick={() => setSelectedSampleKey(sample.sample_key)}
+                  title={sample.source_file}
+                >
+                  <span>{sample.sample_key}</span>
+                  <strong>{sample.report?.publishable ? "PASS" : "CHECK"}</strong>
+                </button>
+              ))}
+            </section>
 
-          {state === "error" ? (
-            <div className="feed-row error-row">
-              <AlertTriangle size={18} />
-              <span>{error}</span>
-            </div>
-          ) : null}
-
-          {state === "ready" ? (
-            <>
-              <div className="feed-row">
-                <Activity size={18} />
-                <span>已连接 API，发现 {customers.length} 个客户。</span>
-              </div>
-              <div className="customer-list">
-                {customers.map((customer) => (
-                  <div className="customer-row" key={customer.customer_key}>
-                    <div>
-                      <strong>{customer.display_name}</strong>
-                      <span>{customer.customer_key}</span>
-                    </div>
-                    <b>{customer.run_count}</b>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : null}
-        </section>
+            <section className="review-grid">
+              <PdfEvidencePane sample={selectedSample} />
+              <CandidateDiffPane sample={selectedSample} />
+              <StandardJsonPane sample={selectedSample} />
+              <AdjudicationPanel evaluation={runDetail.evaluation} approval={runDetail.approval} sample={selectedSample} />
+              <ApprovalGate customer={selectedCustomer} runId={selectedRunId} approval={runDetail.approval} onReload={reloadCurrentRun} />
+            </section>
+          </>
+        ) : (
+          <section className={`workbench-state state-${state}`} aria-live="polite">
+            {state === "loading" ? <Loader2 size={22} className="spin" /> : <AlertTriangle size={22} />}
+            <span>
+              {state === "loading"
+                ? "Loading review run..."
+                : state === "empty"
+                  ? "No customer runs are available."
+                  : error || "Workbench unavailable."}
+            </span>
+          </section>
+        )}
       </section>
     </main>
   );

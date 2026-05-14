@@ -1,0 +1,80 @@
+import { Check, Rocket, Send, X } from "lucide-react";
+import { useState } from "react";
+
+import { api } from "../api";
+import type { ApprovalRecord } from "../types";
+
+interface ApprovalGateProps {
+  customer: string;
+  runId: string;
+  approval: ApprovalRecord | null;
+  onReload: () => Promise<void>;
+}
+
+type ActionName = "submit" | "approve" | "reject" | "publish";
+
+export function ApprovalGate({ customer, runId, approval, onReload }: ApprovalGateProps) {
+  const [busyAction, setBusyAction] = useState<ActionName | null>(null);
+  const [error, setError] = useState("");
+
+  async function runAction(action: ActionName) {
+    setBusyAction(action);
+    setError("");
+    try {
+      if (action === "submit") {
+        await api.submit(customer, runId, "business", "ready for admin review");
+      } else if (action === "approve") {
+        await api.approve(customer, runId, "admin", "approved in review workbench");
+      } else if (action === "reject") {
+        await api.reject(customer, runId, "admin", "changes requested in review workbench");
+      } else {
+        await api.publish(customer, runId);
+      }
+      await onReload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Action failed");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  const publishDisabled = approval?.state !== "approved" || busyAction !== null;
+  const actionDisabled = busyAction !== null;
+
+  return (
+    <section className="pane approval-gate">
+      <div className="pane-header">
+        <div>
+          <span className="pane-kicker">Approval Gate</span>
+          <h2>{approval?.state ?? "draft"}</h2>
+        </div>
+        <Rocket size={18} />
+      </div>
+
+      <div className="gate-actions">
+        <button type="button" onClick={() => runAction("submit")} disabled={actionDisabled} title="Submit">
+          <Send size={16} />
+          <span>{busyAction === "submit" ? "Submitting" : "Submit"}</span>
+        </button>
+        <button type="button" onClick={() => runAction("approve")} disabled={actionDisabled} title="Approve">
+          <Check size={16} />
+          <span>{busyAction === "approve" ? "Approving" : "Approve"}</span>
+        </button>
+        <button type="button" onClick={() => runAction("reject")} disabled={actionDisabled} title="Reject">
+          <X size={16} />
+          <span>{busyAction === "reject" ? "Rejecting" : "Reject"}</span>
+        </button>
+        <button type="button" className="publish-button" onClick={() => runAction("publish")} disabled={publishDisabled} title="Publish">
+          <Rocket size={16} />
+          <span>{busyAction === "publish" ? "Publishing" : "Publish"}</span>
+        </button>
+      </div>
+
+      {error ? <div className="gate-error">{error}</div> : null}
+      <div className="gate-meta">
+        <span>business/admin defaults</span>
+        <span>{approval?.admin_decision ?? "no admin decision"}</span>
+      </div>
+    </section>
+  );
+}

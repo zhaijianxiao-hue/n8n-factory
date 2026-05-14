@@ -28,7 +28,8 @@ export interface CustomerSummary {
 export interface FieldIssue {
   field: string;
   severity: "p0" | "p1" | "warning" | string;
-  message: string;
+  message?: string;
+  reason?: string;
   expected?: unknown;
   actual?: unknown;
 }
