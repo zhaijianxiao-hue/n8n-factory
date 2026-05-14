@@ -1,0 +1,252 @@
+:root {
+  color: #d9fbff;
+  background: #061012;
+  font-family: "Aptos", "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --bg: #061012;
+  --panel: #0b1a1d;
+  --panel-strong: #102529;
+  --line: #1e454b;
+  --line-hot: #23d6d1;
+  --text: #d9fbff;
+  --muted: #78aab0;
+  --danger: #ff6f61;
+  --ok: #7cf7cb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, rgba(35, 214, 209, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(35, 214, 209, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at top right, rgba(35, 214, 209, 0.14), transparent 34rem),
+    var(--bg);
+  background-size: 48px 48px, 48px 48px, auto, auto;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 32px;
+  display: grid;
+  place-items: center;
+}
+
+.console {
+  width: min(980px, 100%);
+  min-height: 560px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(16, 37, 41, 0.92), rgba(7, 18, 20, 0.96)),
+    var(--panel);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
+  padding: 28px;
+}
+
+.console-header {
+  min-height: 88px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 22px;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: var(--line-hot);
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0;
+  font-weight: 700;
+}
+
+h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.status-pill {
+  width: 136px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: rgba(35, 214, 209, 0.08);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-ready {
+  border-color: rgba(124, 247, 203, 0.52);
+  color: var(--ok);
+}
+
+.status-error {
+  border-color: rgba(255, 111, 97, 0.55);
+  color: var(--danger);
+}
+
+.meter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.metric-panel {
+  min-height: 142px;
+  display: grid;
+  grid-template-rows: 26px 22px 1fr;
+  align-items: start;
+  gap: 12px;
+  border: 1px solid var(--line);
+  background: rgba(6, 16, 18, 0.72);
+  padding: 18px;
+}
+
+.metric-panel svg {
+  color: var(--line-hot);
+}
+
+.metric-panel span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.metric-panel strong {
+  align-self: end;
+  color: var(--text);
+  font-size: 46px;
+  line-height: 0.95;
+  letter-spacing: 0;
+}
+
+.feed-panel {
+  min-height: 210px;
+  border: 1px solid var(--line);
+  background: rgba(3, 10, 12, 0.52);
+  padding: 16px;
+}
+
+.feed-row {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  border-bottom: 1px solid rgba(30, 69, 75, 0.72);
+}
+
+.feed-row svg {
+  flex: 0 0 auto;
+  color: var(--line-hot);
+}
+
+.error-row,
+.error-row svg {
+  color: var(--danger);
+}
+
+.customer-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.customer-row {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(30, 69, 75, 0.8);
+  background: rgba(16, 37, 41, 0.62);
+  padding: 12px 14px;
+}
+
+.customer-row div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.customer-row strong,
+.customer-row span {
+  overflow-wrap: anywhere;
+}
+
+.customer-row strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.customer-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.customer-row b {
+  width: 40px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(35, 214, 209, 0.46);
+  color: var(--line-hot);
+  font-size: 16px;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 680px) {
+  .app-shell {
+    padding: 16px;
+    place-items: stretch;
+  }
+
+  .console {
+    min-height: calc(100vh - 32px);
+    padding: 20px;
+  }
+
+  .console-header {
+    flex-direction: column;
+  }
+
+  .meter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  h1 {
+    font-size: 30px;
+  }
+}
