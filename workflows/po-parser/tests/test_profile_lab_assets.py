@@ -12,8 +12,16 @@ from profile_lab.paths import PO_PARSER_DIR
 from profile_lab.llm_client import (
     DEFAULT_MAX_TOKENS,
     MAX_TOKENS_ENV,
+    OLLAMA_THINK_ENV,
+    OLLAMA_URL_ENV,
+    PROVIDER_ENV,
+    OllamaJsonClient,
     OpenAICompatibleJsonClient,
     _resolve_max_tokens,
+    _resolve_ollama_think,
+    _resolve_ollama_url,
+    _to_ollama_messages,
+    create_json_client,
     extract_json_object,
 )
 from profile_lab.pdf_pages import sample_key_from_pdf
@@ -250,6 +258,49 @@ def test_profile_lab_openai_max_tokens_defaults_and_overrides(monkeypatch):
     monkeypatch.setenv(MAX_TOKENS_ENV, "8192")
 
     assert _resolve_max_tokens() == 8192
+
+
+def test_profile_lab_provider_selects_ollama_client(monkeypatch):
+    monkeypatch.setenv(PROVIDER_ENV, "ollama")
+    monkeypatch.setenv(OLLAMA_URL_ENV, "http://ollama-host:11434")
+
+    client = create_json_client()
+
+    assert isinstance(client, OllamaJsonClient)
+    assert client.base_url == "http://ollama-host:11434"
+
+
+def test_profile_lab_ollama_url_can_derive_from_openai_base(monkeypatch):
+    monkeypatch.delenv(OLLAMA_URL_ENV, raising=False)
+    monkeypatch.setenv("PO_PROFILE_LAB_OPENAI_BASE_URL", "http://ollama-host:11434/v1")
+
+    assert _resolve_ollama_url() == "http://ollama-host:11434"
+
+
+def test_profile_lab_ollama_think_defaults_false(monkeypatch):
+    monkeypatch.delenv(OLLAMA_THINK_ENV, raising=False)
+
+    assert _resolve_ollama_think() is False
+
+    monkeypatch.setenv(OLLAMA_THINK_ENV, "true")
+
+    assert _resolve_ollama_think() is True
+
+
+def test_to_ollama_messages_extracts_text_and_images():
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Read this image"},
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc123"}},
+            ],
+        }
+    ]
+
+    assert _to_ollama_messages(messages) == [
+        {"role": "user", "content": "Read this image", "images": ["abc123"]}
+    ]
 
 
 def test_text_candidate_uses_model_client(tmp_path):

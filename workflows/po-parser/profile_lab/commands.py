@@ -6,7 +6,7 @@ from .adjudicator import adjudicate_sample
 from .customer_assets import create_run, init_customer
 from .evaluator import evaluate_po_result
 from .json_io import read_json, write_json
-from .llm_client import OpenAICompatibleJsonClient
+from .llm_client import create_json_client
 from .paths import DEFAULT_LAB_ROOT, PRODUCTION_PROFILE_DIR
 from .pdf_pages import render_pdf_pages, sample_key_from_pdf
 from .publisher import PublishGateError, publish_profile
@@ -58,7 +58,7 @@ def run_draft(
     inputs_dir = run.run_dir / "inputs"
     customer_dir = lab_root / "customers" / customer_key
     prompt = (customer_dir / "prompt.md").read_text(encoding="utf-8")
-    model_client = OpenAICompatibleJsonClient() if text_model or vision_model else None
+    model_client = create_json_client() if text_model or vision_model else None
 
     for pdf_path in sorted(inputs_dir.glob("*.pdf")):
         sample_key = sample_key_from_pdf(pdf_path)

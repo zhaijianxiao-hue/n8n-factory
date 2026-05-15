@@ -21,6 +21,11 @@ The `draft` command supports `--text-model` and `--vision-model` for
 OpenAI-compatible model-backed candidate generation.
 
 Environment variables:
+- `PO_PROFILE_LAB_PROVIDER` selects the model client. Use `ollama` for the
+  native Ollama API or `openai-compatible` for `/v1/chat/completions`.
+- `PO_PROFILE_LAB_OLLAMA_URL` defaults to `http://localhost:11434`.
+- `PO_PROFILE_LAB_OLLAMA_THINK` defaults to `false`, so reasoning models return
+  the final JSON without reasoning content when using the native Ollama API.
 - `PO_PROFILE_LAB_OPENAI_API_KEY` is required when using model-backed candidates.
 - `PO_PROFILE_LAB_OPENAI_BASE_URL` is optional for OpenAI-compatible endpoints.
 - `PO_PROFILE_LAB_OPENAI_MAX_TOKENS` controls model output budget. It defaults
