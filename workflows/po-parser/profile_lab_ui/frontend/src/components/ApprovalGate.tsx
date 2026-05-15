@@ -1,4 +1,4 @@
-import { Check, Rocket, Send, X } from "lucide-react";
+import { BadgeCheck, Check, Rocket, Send, X } from "lucide-react";
 import { useState } from "react";
 
 import { api } from "../api";
@@ -10,12 +10,23 @@ interface ApprovalGateProps {
   approval: ApprovalRecord | null;
   mode: "business" | "admin";
   adminToken: string;
+  sampleKey: string;
+  requiresExpectedConfirmation: boolean;
   onReload: () => Promise<void>;
 }
 
-type ActionName = "submit" | "approve" | "reject" | "publish";
+type ActionName = "confirm" | "submit" | "approve" | "reject" | "publish";
 
-export function ApprovalGate({ customer, runId, approval, mode, adminToken, onReload }: ApprovalGateProps) {
+export function ApprovalGate({
+  customer,
+  runId,
+  approval,
+  mode,
+  adminToken,
+  sampleKey,
+  requiresExpectedConfirmation,
+  onReload
+}: ApprovalGateProps) {
   const [busyAction, setBusyAction] = useState<ActionName | null>(null);
   const [error, setError] = useState("");
 
@@ -23,7 +34,9 @@ export function ApprovalGate({ customer, runId, approval, mode, adminToken, onRe
     setBusyAction(action);
     setError("");
     try {
-      if (action === "submit") {
+      if (action === "confirm") {
+        await api.confirmExpected(customer, runId, sampleKey);
+      } else if (action === "submit") {
         await api.submit(customer, runId, "business", "ready for admin review");
       } else if (action === "approve") {
         await api.approve(customer, runId, adminToken, "admin", "approved in review workbench");
@@ -45,6 +58,8 @@ export function ApprovalGate({ customer, runId, approval, mode, adminToken, onRe
   const adminActionDisabled = !isAdminMode || !hasAdminToken || busyAction !== null;
   const publishDisabled = adminActionDisabled || approval?.state !== "approved";
   const actionDisabled = busyAction !== null;
+  const submitDisabled = isAdminMode || actionDisabled || requiresExpectedConfirmation;
+  const confirmDisabled = isAdminMode || actionDisabled || !sampleKey;
 
   return (
     <section className="pane approval-gate">
@@ -56,8 +71,19 @@ export function ApprovalGate({ customer, runId, approval, mode, adminToken, onRe
         <Rocket size={18} />
       </div>
 
+      <button
+        type="button"
+        className="confirm-expected-button"
+        onClick={() => runAction("confirm")}
+        disabled={confirmDisabled}
+        title="Confirm current sample as expected"
+      >
+        <BadgeCheck size={16} />
+        <span>{busyAction === "confirm" ? "Confirming" : "Confirm Expected"}</span>
+      </button>
+
       <div className="gate-actions">
-        <button type="button" onClick={() => runAction("submit")} disabled={isAdminMode || actionDisabled} title="Submit">
+        <button type="button" onClick={() => runAction("submit")} disabled={submitDisabled} title="Submit">
           <Send size={16} />
           <span>{busyAction === "submit" ? "Submitting" : "Submit"}</span>
         </button>
@@ -77,7 +103,13 @@ export function ApprovalGate({ customer, runId, approval, mode, adminToken, onRe
 
       {error ? <div className="gate-error">{error}</div> : null}
       <div className="gate-meta">
-        <span>{isAdminMode && hasAdminToken ? "admin token present" : "business submission mode"}</span>
+        <span>
+          {requiresExpectedConfirmation
+            ? "confirm expected before submit"
+            : isAdminMode && hasAdminToken
+              ? "admin token present"
+              : "business submission mode"}
+        </span>
         <span>{approval?.admin_decision ?? "no admin decision"}</span>
       </div>
     </section>

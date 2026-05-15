@@ -43,6 +43,11 @@ export default function App() {
     return runDetail.samples.find((sample) => sample.sample_key === selectedSampleKey) ?? runDetail.samples[0];
   }, [runDetail, selectedSampleKey]);
 
+  const requiresExpectedConfirmation = useMemo(
+    () => runDetail?.evaluation.reports?.some((report) => report.expected_missing) ?? false,
+    [runDetail]
+  );
+
   const loadRunDetail = useCallback(async (customer: string, runId: string) => {
     const detail = await api.run(customer, runId);
     setRunDetail(detail);
@@ -259,6 +264,8 @@ export default function App() {
                 approval={runDetail.approval}
                 mode={approvalMode}
                 adminToken={adminToken}
+                sampleKey={selectedSample?.sample_key ?? ""}
+                requiresExpectedConfirmation={requiresExpectedConfirmation}
                 onReload={reloadCurrentRun}
               />
             </section>

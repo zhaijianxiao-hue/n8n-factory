@@ -38,6 +38,7 @@ export interface EvaluationReport {
   publishable?: boolean;
   schema_pass?: boolean;
   p0_pass?: boolean;
+  expected_missing?: boolean;
   blocking_errors?: FieldIssue[];
   scores?: Record<string, number>;
   field_issues?: FieldIssue[];

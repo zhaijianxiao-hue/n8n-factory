@@ -161,6 +161,31 @@ def test_publish_requires_admin_approval(tmp_path, monkeypatch):
     assert (tmp_path / "profiles" / "evytra.json").exists()
 
 
+def test_confirm_expected_saves_merged_draft_and_reruns_evaluation(tmp_path):
+    lab_root = tmp_path / "profile-lab"
+    run_dir = create_run(lab_root)
+    expected_path = lab_root / "customers" / "evytra" / "expected" / "sample.json"
+    if expected_path.exists():
+        expected_path.unlink()
+    write_json(
+        run_dir / "adjudication" / "sample.merged_draft.json",
+        {
+            "header": {"customer_name": "EVYTRA GmbH", "po_number": "PO-1", "po_date": "2026-05-14"},
+            "items": [{"customer_material": "MAT-1", "qty": 2, "delivery_date": "2026-06-01"}],
+        },
+    )
+    client = TestClient(create_app(lab_root=lab_root))
+
+    response = client.post("/api/customers/evytra/runs/run-1/samples/sample/confirm-expected")
+
+    assert response.status_code == 200
+    assert expected_path.is_file()
+    payload = response.json()
+    assert payload["evaluation"]["sample_count"] == 1
+    assert payload["samples"][0]["report"]["expected_missing"] is False
+    assert payload["samples"][0]["report"]["publishable"] is True
+
+
 def test_submit_without_webhook_records_skipped_notification(tmp_path, monkeypatch):
     monkeypatch.delenv("PO_PROFILE_LAB_APPROVAL_WEBHOOK_URL", raising=False)
     lab_root = tmp_path / "profile-lab"

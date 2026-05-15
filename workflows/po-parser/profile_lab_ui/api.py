@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from fastapi import Header
 from fastapi import HTTPException
 
+from profile_lab.commands import run_evaluate
+from profile_lab.json_io import write_json
 from profile_lab.paths import DEFAULT_LAB_ROOT
 from profile_lab.paths import PRODUCTION_PROFILE_DIR
 from profile_lab.publisher import PublishGateError
@@ -21,6 +23,7 @@ from .approval import save_approval
 from .approval import submit_run
 from .artifacts import ArtifactNotFoundError
 from .artifacts import dump_model
+from .artifacts import read_json
 from .artifacts import list_customers as list_customer_artifacts
 from .artifacts import list_runs as list_run_artifacts
 from .artifacts import load_run
@@ -83,6 +86,17 @@ def create_app(
             raise HTTPException(status_code=404, detail="run not found") from exc
         except ApprovalGateError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.post("/api/customers/{customer}/runs/{run_id}/samples/{sample_key}/confirm-expected")
+    def confirm_expected(customer: str, run_id: str, sample_key: str):
+        try:
+            current_run_dir = run_dir(lab_root, customer, run_id)
+            merged_draft = read_json(current_run_dir / "adjudication" / f"{sample_key}.merged_draft.json")
+            write_json(lab_root / "customers" / customer / "expected" / f"{sample_key}.json", merged_draft)
+            run_evaluate(lab_root=lab_root, customer_key=customer, run_id=run_id)
+            return load_run(lab_root, customer, run_id)
+        except ArtifactNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="sample not found") from exc
 
     @app.post("/api/customers/{customer}/runs/{run_id}/approve")
     def approve(

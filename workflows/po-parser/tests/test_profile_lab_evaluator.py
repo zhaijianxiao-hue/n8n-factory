@@ -355,6 +355,45 @@ def test_evaluate_command_writes_summary(tmp_path):
     assert "scores" in summary["reports"][0]
 
 
+def test_evaluate_command_checks_draft_when_expected_missing(tmp_path):
+    root = tmp_path / "profile-lab"
+    init_customer(root=root, customer_key="acme", display_name="ACME Corp")
+    customer_dir = root / "customers" / "acme"
+    actual = {
+        "header": {"customer_name": "ACME", "po_number": "PO-1", "po_date": "2026-05-14"},
+        "items": [{"customer_material": "MAT-1", "qty": 2, "delivery_date": "2026-06-01"}],
+    }
+    write_json(
+        customer_dir / "runs" / "run-1" / "manifest.json",
+        {"run_id": "run-1", "customer": "acme", "samples": ["po-001.pdf"]},
+    )
+    write_json(
+        customer_dir / "runs" / "run-1" / "adjudication" / "po-001.merged_draft.json",
+        actual,
+    )
+
+    exit_code = main([
+        "--lab-root",
+        str(root),
+        "evaluate",
+        "--customer",
+        "acme",
+        "--run-id",
+        "run-1",
+    ])
+
+    assert exit_code == 0
+    summary = json.loads((customer_dir / "runs" / "run-1" / "evaluation" / "summary.json").read_text(encoding="utf-8"))
+    report = summary["reports"][0]
+    assert summary["sample_count"] == 1
+    assert summary["publishable"] is False
+    assert report["sample_key"] == "po-001"
+    assert report["expected_missing"] is True
+    assert report["schema_pass"] is True
+    assert report["p0_pass"] is True
+    assert report["recommendation"] == "confirm_expected"
+
+
 def test_evaluate_command_reports_missing_actual_draft(tmp_path):
     root = tmp_path / "profile-lab"
     init_customer(root=root, customer_key="acme", display_name="ACME Corp")

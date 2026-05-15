@@ -57,6 +57,11 @@ export const api = {
   runs: (customer: string) => request<RunSummary[]>(`/api/customers/${encodeURIComponent(customer)}/runs`),
   run: (customer: string, runId: string) =>
     request<RunDetail>(`/api/customers/${encodeURIComponent(customer)}/runs/${encodeURIComponent(runId)}`),
+  confirmExpected: (customer: string, runId: string, sampleKey: string) =>
+    request<RunDetail>(
+      `/api/customers/${encodeURIComponent(customer)}/runs/${encodeURIComponent(runId)}/samples/${encodeURIComponent(sampleKey)}/confirm-expected`,
+      { method: "POST" }
+    ),
   submit: (customer: string, runId: string, actor = "business", note?: string) =>
     request<ApprovalRecord>(
       `/api/customers/${encodeURIComponent(customer)}/runs/${encodeURIComponent(runId)}/submit`,

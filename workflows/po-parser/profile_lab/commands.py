@@ -160,16 +160,21 @@ def run_evaluate(lab_root: Path, customer_key: str, run_id: str) -> Path:
     evaluation_dir.mkdir(parents=True, exist_ok=True)
 
     sample_reports = []
-    for expected_path in sorted(expected_dir.glob("*.json")):
-        sample_key = expected_path.stem
+    for sample_key in sample_keys_for_evaluation(run_dir, expected_dir):
+        expected_path = expected_dir / f"{sample_key}.json"
         actual_path = adjudication_dir / f"{sample_key}.merged_draft.json"
-        if actual_path.exists():
+        if expected_path.exists() and actual_path.exists():
             report = evaluate_po_result(
                 expected=read_json(expected_path),
                 actual=read_json(actual_path),
             )
             report["sample_key"] = sample_key
             report["report_path"] = f"{sample_key}.report.json"
+            report["expected_missing"] = False
+        elif expected_path.exists():
+            report = build_missing_actual_report(sample_key, actual_path)
+        elif actual_path.exists():
+            report = evaluate_draft_quality(sample_key, actual_path)
         else:
             report = build_missing_actual_report(sample_key, actual_path)
         write_json(evaluation_dir / f"{sample_key}.report.json", report)
@@ -194,6 +199,27 @@ def run_evaluate(lab_root: Path, customer_key: str, run_id: str) -> Path:
         encoding="utf-8",
     )
     return evaluation_dir
+
+
+def sample_keys_for_evaluation(run_dir: Path, expected_dir: Path) -> list[str]:
+    manifest_path = run_dir / "manifest.json"
+    keys = []
+    if manifest_path.exists():
+        manifest = read_json(manifest_path)
+        keys.extend(sample_key_from_pdf(Path(sample)) for sample in manifest.get("samples", []))
+    keys.extend(path.stem for path in sorted(expected_dir.glob("*.json")))
+    return sorted(dict.fromkeys(keys))
+
+
+def evaluate_draft_quality(sample_key: str, actual_path: Path) -> dict:
+    actual = read_json(actual_path)
+    report = evaluate_po_result(expected=actual, actual=actual)
+    report["publishable"] = False
+    report["expected_missing"] = True
+    report["recommendation"] = "confirm_expected"
+    report["sample_key"] = sample_key
+    report["report_path"] = f"{sample_key}.report.json"
+    return report
 
 
 def main(argv: Sequence[str] | None = None) -> int:
