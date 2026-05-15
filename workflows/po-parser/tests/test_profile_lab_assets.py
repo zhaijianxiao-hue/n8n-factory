@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from profile_lab.adjudicator import adjudicate_sample
 from profile_lab.commands import main
 from profile_lab.customer_assets import create_run, init_customer
 from profile_lab.env_loader import ENV_FILE_ENV, SKIP_ENV_FILE_ENV, _candidate_env_files, load_profile_lab_env
@@ -191,6 +192,46 @@ def test_draft_command_creates_adjudication_artifacts(tmp_path):
     assert field_evidence["_adjudication"]["human_review_required"] is True
     assert "header" not in field_evidence
     assert "header.po_number" in field_evidence
+
+
+def test_adjudicator_reconciles_price_basis_unit_price_from_text_candidate(tmp_path):
+    text_candidate = {
+        "confidence": 0.95,
+        "header": {"po_number": "2260892"},
+        "items": [
+            {
+                "line_no": 10,
+                "customer_material": "4001391504",
+                "qty": 1000,
+                "price_basis_qty": 100,
+                "price_basis_unit": "pcs",
+                "unit_price": 45,
+                "amount": 45000,
+            }
+        ],
+    }
+    vision_candidate = {
+        "confidence": 0.95,
+        "header": {"po_number": "2260892"},
+        "items": [
+            {
+                "line_no": 10,
+                "customer_material": "4001391504",
+                "qty": 1000,
+                "price_basis_qty": 100,
+                "price_basis_unit": "pcs",
+                "unit_price": 450,
+                "amount": 450,
+            }
+        ],
+    }
+
+    adjudicate_sample("po-001", text_candidate, vision_candidate, tmp_path)
+
+    merged = json.loads((tmp_path / "po-001.merged_draft.json").read_text(encoding="utf-8"))
+    assert merged["items"][0]["unit_price"] == 45
+    assert merged["items"][0]["amount"] == 450
+    assert "adjudicated unit_price from text candidate" in merged["warnings"]
 
 
 def test_extract_json_object_strips_markdown_fence():

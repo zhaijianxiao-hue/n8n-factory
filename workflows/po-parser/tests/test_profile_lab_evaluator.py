@@ -155,6 +155,42 @@ def test_evaluate_po_result_blocks_publish_when_item_amount_rule_fails():
     assert any(error["reason"] == "business rule mismatch" for error in report["quality_errors"])
 
 
+def test_evaluate_po_result_uses_price_basis_qty_for_item_amount_rule():
+    expected = {
+        "header": {"customer_name": "EVYTRA GmbH", "po_number": "2260892", "po_date": "2026-03-23"},
+        "items": [
+            {
+                "customer_material": "4001391504",
+                "qty": 1000,
+                "delivery_date": "2026-05-01",
+                "price_basis_qty": 100,
+                "price_basis_unit": "pcs",
+                "unit_price": 45,
+                "amount": 450,
+            }
+        ],
+    }
+    actual = {
+        "header": {"customer_name": "EVYTRA GmbH", "po_number": "2260892", "po_date": "2026-03-23"},
+        "items": [
+            {
+                "customer_material": "4001391504",
+                "qty": 1000,
+                "delivery_date": "2026-05-01",
+                "price_basis_qty": 100,
+                "price_basis_unit": "pcs",
+                "unit_price": 45,
+                "amount": 450,
+            }
+        ],
+    }
+
+    report = evaluate_po_result(expected=expected, actual=actual)
+
+    assert report["scores"]["business_rules"] == 1.0
+    assert not any(error["field"] == "items[0].amount" for error in report["quality_errors"])
+
+
 def test_evaluate_po_result_blocks_publish_when_item_sum_total_rule_fails():
     expected = {
         "header": {

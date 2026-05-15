@@ -16,6 +16,10 @@ function issueReason(issue: FieldIssue): string {
   return issue.reason ?? issue.message ?? "field mismatch";
 }
 
+function expectedLabel(issue: FieldIssue): string {
+  return issue.reason === "business rule mismatch" ? "Rule target" : "Expected";
+}
+
 interface CandidateDiffPaneProps {
   sample: RunSample | null;
 }
@@ -49,7 +53,7 @@ export function CandidateDiffPane({ sample }: CandidateDiffPaneProps) {
               <p>{issueReason(issue)}</p>
               <div className="diff-values">
                 <div>
-                  <span>Expected</span>
+                  <span>{expectedLabel(issue)}</span>
                   <code>{valueLabel(issue.expected)}</code>
                 </div>
                 <div>

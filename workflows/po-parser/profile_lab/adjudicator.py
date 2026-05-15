@@ -1,6 +1,7 @@
 from copy import deepcopy
 from pathlib import Path
 
+from .evaluator import numbers_equal, to_number
 from .json_io import write_json
 
 NO_USABLE_CANDIDATE_WARNING = (
@@ -109,6 +110,59 @@ def mark_no_usable_candidate(chosen: dict) -> dict:
     return draft
 
 
+def item_amount_matches(item: dict, unit_price_override=None, amount_override=None) -> bool:
+    qty = to_number(item.get("qty"))
+    unit_price = to_number(unit_price_override if unit_price_override is not None else item.get("unit_price"))
+    amount = to_number(amount_override if amount_override is not None else item.get("amount"))
+    if qty is None or unit_price is None or amount is None:
+        return False
+    price_basis_qty = to_number(item.get("price_basis_qty"))
+    if price_basis_qty and price_basis_qty > 0:
+        expected_amount = qty / price_basis_qty * unit_price
+    else:
+        expected_amount = qty * unit_price
+    return numbers_equal(expected_amount, amount, tolerance=0.05)
+
+
+def add_warning_once(draft: dict, warning: str) -> None:
+    warnings = list(draft.get("warnings") or [])
+    if warning not in warnings:
+        warnings.append(warning)
+    draft["warnings"] = warnings
+
+
+def reconcile_item_pricing(
+    chosen: dict,
+    chosen_source: str,
+    text_candidate: dict,
+    vision_candidate: dict,
+) -> dict:
+    draft = deepcopy(chosen)
+    chosen_items = draft.get("items") or []
+    if not isinstance(chosen_items, list):
+        return draft
+
+    alternate = text_candidate if chosen_source == "vision" else vision_candidate
+    alternate_source = "text" if chosen_source == "vision" else "vision"
+    alternate_items = alternate.get("items") or []
+    if not isinstance(alternate_items, list):
+        return draft
+
+    for index, item in enumerate(chosen_items):
+        if not isinstance(item, dict) or index >= len(alternate_items):
+            continue
+        alternate_item = alternate_items[index]
+        if not isinstance(alternate_item, dict) or item_amount_matches(item):
+            continue
+
+        alternate_unit_price = alternate_item.get("unit_price")
+        if item_amount_matches(item, unit_price_override=alternate_unit_price):
+            item["unit_price"] = alternate_unit_price
+            add_warning_once(draft, f"adjudicated unit_price from {alternate_source} candidate")
+
+    return draft
+
+
 def build_profile_suggestions() -> str:
     return "\n".join([
         "# Profile Suggestions",
@@ -134,6 +188,8 @@ def adjudicate_sample(
     adjudication_status = "no_usable_candidate" if no_usable_candidate else None
     if no_usable_candidate:
         chosen = mark_no_usable_candidate(chosen)
+    else:
+        chosen = reconcile_item_pricing(chosen, chosen_source, text_candidate, vision_candidate)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     write_json(output_dir / f"{sample_key}.merged_draft.json", chosen)

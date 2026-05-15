@@ -165,7 +165,11 @@ def calculate_business_rule_score(
         if qty is None or unit_price is None or amount is None:
             continue
         scored_count += 1
-        expected_amount = qty * unit_price
+        price_basis_qty = to_number(item.get("price_basis_qty"))
+        if price_basis_qty and price_basis_qty > 0:
+            expected_amount = qty / price_basis_qty * unit_price
+        else:
+            expected_amount = qty * unit_price
         if numbers_equal(expected_amount, amount, tolerance=0.05):
             continue
         failed_count += 1
