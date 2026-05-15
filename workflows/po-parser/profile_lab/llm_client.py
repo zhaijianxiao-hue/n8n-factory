@@ -3,6 +3,8 @@ import os
 import re
 from typing import Protocol
 
+from .env_loader import load_profile_lab_env
+
 
 class JsonClient(Protocol):
     def create_json(self, messages: list[dict], model: str) -> dict:
@@ -36,6 +38,7 @@ def extract_json_object(content: str) -> dict:
 
 class OpenAICompatibleJsonClient:
     def __init__(self, base_url: str | None = None, api_key: str | None = None) -> None:
+        load_profile_lab_env()
         resolved_api_key = api_key or os.environ.get("PO_PROFILE_LAB_OPENAI_API_KEY")
         if not resolved_api_key:
             raise RuntimeError(
