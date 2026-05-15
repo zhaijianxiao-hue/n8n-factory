@@ -256,7 +256,7 @@ export default function App() {
             <section className="review-grid">
               <PdfEvidencePane sample={selectedSample} />
               <CandidateDiffPane sample={selectedSample} />
-              <StandardJsonPane sample={selectedSample} />
+              <StandardJsonPane customer={selectedCustomer} runId={selectedRunId} sample={selectedSample} onReload={reloadCurrentRun} />
               <AdjudicationPanel evaluation={runDetail.evaluation} approval={runDetail.approval} sample={selectedSample} />
               <ApprovalGate
                 customer={selectedCustomer}

@@ -5,7 +5,7 @@ from typing import Any
 
 P0_HEADER_FIELDS = ["customer_name", "po_number", "po_date"]
 P0_ITEM_FIELDS = ["customer_material", "qty", "delivery_date"]
-P1_HEADER_FIELDS = ["currency", "total_amount"]
+P1_HEADER_FIELDS = ["currency", "total_amount", "payment_terms"]
 P1_ITEM_FIELDS = ["unit_price", "amount", "unit", "customer_release_no", "sap_material"]
 
 

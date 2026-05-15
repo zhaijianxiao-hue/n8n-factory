@@ -8,6 +8,7 @@ interface PdfEvidencePaneProps {
 
 export function PdfEvidencePane({ sample }: PdfEvidencePaneProps) {
   const pageImageUrl = typeof sample?.report?.page_image_url === "string" ? sample.report.page_image_url : "";
+  const pdfUrl = sample?.pdf_url ?? "";
 
   return (
     <section className="pane evidence-pane">
@@ -19,7 +20,13 @@ export function PdfEvidencePane({ sample }: PdfEvidencePaneProps) {
         <FileText size={18} />
       </div>
 
-      {pageImageUrl ? (
+      {pdfUrl ? (
+        <object className="evidence-pdf" data={pdfUrl} type="application/pdf" aria-label={sample?.source_file ?? "PDF evidence"}>
+          <a href={pdfUrl} target="_blank" rel="noreferrer">
+            {sample?.source_file ?? "Open PDF"}
+          </a>
+        </object>
+      ) : pageImageUrl ? (
         <img className="evidence-image" src={pageImageUrl} alt={sample?.source_file ?? "PDF evidence"} />
       ) : (
         <div className="pdf-placeholder" aria-label="PDF evidence placeholder">

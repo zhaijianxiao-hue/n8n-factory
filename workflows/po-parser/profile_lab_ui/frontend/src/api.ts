@@ -62,6 +62,17 @@ export const api = {
       `/api/customers/${encodeURIComponent(customer)}/runs/${encodeURIComponent(runId)}/samples/${encodeURIComponent(sampleKey)}/confirm-expected`,
       { method: "POST" }
     ),
+  saveCorrections: (customer: string, runId: string, sampleKey: string, corrections: Array<{ field: string; correct_value: unknown; note?: string }>) =>
+    request<RunDetail>(
+      `/api/customers/${encodeURIComponent(customer)}/runs/${encodeURIComponent(runId)}/samples/${encodeURIComponent(sampleKey)}/corrections`,
+      {
+        method: "POST",
+        json: {
+          actor: "business",
+          corrections
+        }
+      }
+    ),
   submit: (customer: string, runId: string, actor = "business", note?: string) =>
     request<ApprovalRecord>(
       `/api/customers/${encodeURIComponent(customer)}/runs/${encodeURIComponent(runId)}/submit`,

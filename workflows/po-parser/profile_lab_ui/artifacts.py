@@ -128,10 +128,12 @@ class ArtifactRepository:
                 {
                     "sample_key": sample_key,
                     "source_file": sample,
+                    "pdf_url": f"/api/customers/{manifest.get('customer', '')}/runs/{manifest.get('run_id', run_dir.name)}/samples/{sample_key}/pdf",
                     "text_candidate": read_json(run_dir / "candidates" / "text" / f"{sample_key}.json", default={}),
                     "vision_candidate": read_json(run_dir / "candidates" / "vision" / f"{sample_key}.json", default={}),
                     "merged_draft": read_json(run_dir / "adjudication" / f"{sample_key}.merged_draft.json", default={}),
                     "report": read_json(run_dir / "evaluation" / f"{sample_key}.report.json", default={}),
+                    "corrections": read_json(run_dir / "corrections" / f"{sample_key}.corrections.json", default={}),
                 }
             )
         return samples

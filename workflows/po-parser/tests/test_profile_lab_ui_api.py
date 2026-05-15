@@ -77,6 +77,7 @@ def test_get_run_returns_artifacts(tmp_path):
     assert payload["evaluation"]["publishable"] is True
     assert payload["samples"][0]["sample_key"] == "sample"
     assert payload["samples"][0]["source_file"] == "sample.pdf"
+    assert payload["samples"][0]["pdf_url"] == "/api/customers/evytra/runs/run-1/samples/sample/pdf"
     assert payload["samples"][0]["text_candidate"]["header"]["po_number"] == "PO-1"
 
 
@@ -184,6 +185,64 @@ def test_confirm_expected_saves_merged_draft_and_reruns_evaluation(tmp_path):
     assert payload["evaluation"]["sample_count"] == 1
     assert payload["samples"][0]["report"]["expected_missing"] is False
     assert payload["samples"][0]["report"]["publishable"] is True
+
+
+def test_save_sample_corrections_updates_expected_and_records_notes(tmp_path):
+    lab_root = tmp_path / "profile-lab"
+    run_dir = create_run(lab_root)
+    write_json(
+        run_dir / "adjudication" / "sample.merged_draft.json",
+        {
+            "header": {
+                "customer_name": "EVYTRA GmbH",
+                "po_number": "PO-1",
+                "po_date": "2026-05-14",
+                "payment_terms": "30 days net",
+            },
+            "items": [{"customer_material": "MAT-1", "qty": 2, "delivery_date": "2026-06-01"}],
+        },
+    )
+    client = TestClient(create_app(lab_root=lab_root))
+
+    response = client.post(
+        "/api/customers/evytra/runs/run-1/samples/sample/corrections",
+        json={
+            "actor": "business",
+            "corrections": [
+                {
+                    "field": "header.payment_terms",
+                    "correct_value": "90 days net",
+                    "note": "Payment terms are printed in the PO footer.",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    expected = json.loads((lab_root / "customers" / "evytra" / "expected" / "sample.json").read_text(encoding="utf-8"))
+    corrections = json.loads((run_dir / "corrections" / "sample.corrections.json").read_text(encoding="utf-8"))
+    payload = response.json()
+    assert expected["header"]["payment_terms"] == "90 days net"
+    assert corrections["corrections"][0]["wrong_value"] == "30 days net"
+    assert corrections["corrections"][0]["correct_value"] == "90 days net"
+    assert corrections["corrections"][0]["note"] == "Payment terms are printed in the PO footer."
+    assert payload["samples"][0]["corrections"]["corrections"][0]["field"] == "header.payment_terms"
+    assert payload["samples"][0]["report"]["publishable"] is False
+    assert any(error["field"] == "header.payment_terms" for error in payload["samples"][0]["report"]["quality_errors"])
+
+
+def test_sample_pdf_endpoint_serves_input_pdf(tmp_path):
+    lab_root = tmp_path / "profile-lab"
+    run_dir = create_run(lab_root)
+    (run_dir / "inputs").mkdir(parents=True, exist_ok=True)
+    (run_dir / "inputs" / "sample.pdf").write_bytes(b"%PDF-1.4\nsample")
+    client = TestClient(create_app(lab_root=lab_root))
+
+    response = client.get("/api/customers/evytra/runs/run-1/samples/sample/pdf")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF-1.4")
 
 
 def test_submit_without_webhook_records_skipped_notification(tmp_path, monkeypatch):

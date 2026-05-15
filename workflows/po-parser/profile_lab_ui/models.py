@@ -1,3 +1,4 @@
+from typing import Any
 from typing import Literal
 from typing import Optional
 
@@ -36,3 +37,14 @@ class ApprovalRequest(BaseModel):
 class AdminDecisionRequest(BaseModel):
     actor: str = Field(default="admin", min_length=1)
     note: str = Field(default="")
+
+
+class FieldCorrection(BaseModel):
+    field: str = Field(min_length=1)
+    correct_value: Any
+    note: str = Field(default="")
+
+
+class CorrectionRequest(BaseModel):
+    actor: str = Field(default="business", min_length=1)
+    corrections: list[FieldCorrection] = Field(default_factory=list)

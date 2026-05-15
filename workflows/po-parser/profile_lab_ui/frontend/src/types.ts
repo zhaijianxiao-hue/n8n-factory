@@ -53,6 +53,21 @@ export interface EvaluationSummary {
   [key: string]: unknown;
 }
 
+export interface CorrectionEntry {
+  field: string;
+  wrong_value?: unknown;
+  correct_value: unknown;
+  note?: string;
+  actor?: string;
+}
+
+export interface CorrectionRecord {
+  sample_key?: string;
+  source_file?: string;
+  actor?: string;
+  corrections?: CorrectionEntry[];
+}
+
 export interface RunSummary {
   run_id: string;
   customer: string;
@@ -65,10 +80,12 @@ export interface RunSummary {
 export interface RunSample {
   sample_key: string;
   source_file: string;
+  pdf_url?: string;
   text_candidate: Record<string, unknown>;
   vision_candidate: Record<string, unknown>;
   merged_draft: Record<string, unknown>;
   report: EvaluationReport;
+  corrections?: CorrectionRecord;
 }
 
 export interface RunDetail {

@@ -663,12 +663,20 @@ h2 {
   color: var(--cyan);
 }
 
-.evidence-image {
+.evidence-image,
+.evidence-pdf {
   width: 100%;
   height: 100%;
   min-height: 0;
-  object-fit: contain;
   background: #02080a;
+}
+
+.evidence-image {
+  object-fit: contain;
+}
+
+.evidence-pdf {
+  border: 0;
 }
 
 .pdf-placeholder {
@@ -820,7 +828,7 @@ code {
 .json-row {
   min-height: 30px;
   display: grid;
-  grid-template-columns: minmax(110px, 0.52fr) minmax(0, 1fr);
+  grid-template-columns: minmax(110px, 0.52fr) minmax(0, 1fr) 30px;
   gap: 10px;
   align-items: center;
   border-bottom: 1px solid rgba(30, 69, 75, 0.42);
@@ -844,6 +852,30 @@ code {
 .json-blocked .json-path,
 .json-blocked code {
   color: var(--danger);
+}
+
+.field-edit-button,
+.item-edit-cell {
+  min-width: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.field-edit-button {
+  width: 30px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.field-edit-button:hover,
+.item-edit-cell:hover {
+  border-color: rgba(35, 214, 209, 0.42);
+  background: rgba(35, 214, 209, 0.08);
+  color: var(--cyan);
 }
 
 .items-block {
@@ -890,7 +922,8 @@ code {
 }
 
 .items-row > span,
-.items-row > code {
+.items-row > code,
+.items-row > button {
   min-width: 0;
   display: flex;
   align-items: center;
@@ -899,8 +932,18 @@ code {
 }
 
 .items-row > span:last-child,
-.items-row > code:last-child {
+.items-row > code:last-child,
+.items-row > button:last-child {
   border-right: 0;
+}
+
+.item-edit-cell {
+  justify-content: flex-start;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 
 .items-head {
@@ -917,6 +960,77 @@ code {
 
 .items-blocked code {
   color: var(--danger);
+}
+
+.correction-editor {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--line-soft);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.correction-fields {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.9fr) minmax(160px, 1.1fr);
+  gap: 8px;
+}
+
+.correction-editor label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.correction-editor label span {
+  color: var(--cyan);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.correction-editor input,
+.correction-editor textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(35, 214, 209, 0.34);
+  background: rgba(3, 10, 12, 0.66);
+  color: var(--text);
+  padding: 8px;
+  outline: none;
+}
+
+.correction-editor textarea {
+  resize: vertical;
+  min-height: 68px;
+}
+
+.correction-editor input:focus,
+.correction-editor textarea:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px rgba(35, 214, 209, 0.12);
+}
+
+.save-correction-button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(124, 247, 203, 0.45);
+  background: rgba(124, 247, 203, 0.08);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.save-correction-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.save-correction-button:hover:not(:disabled) {
+  border-color: var(--ok);
+  box-shadow: 0 0 18px rgba(124, 247, 203, 0.12);
 }
 
 .publishability {
@@ -1195,6 +1309,14 @@ code {
   }
 
   .json-row {
+    grid-template-columns: 1fr;
+  }
+
+  .field-edit-button {
+    width: 100%;
+  }
+
+  .correction-fields {
     grid-template-columns: 1fr;
   }
 

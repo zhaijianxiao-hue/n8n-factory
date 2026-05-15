@@ -1,5 +1,7 @@
-import { Braces, CircleAlert } from "lucide-react";
+import { Braces, CircleAlert, Pencil, Save } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
 
+import { api } from "../api";
 import type { FieldIssue, RunSample } from "../types";
 
 function valueText(value: unknown): string {
@@ -46,7 +48,10 @@ function hasIssue(path: string, issues: FieldIssue[]): boolean {
 }
 
 interface StandardJsonPaneProps {
+  customer: string;
+  runId: string;
   sample: RunSample | null;
+  onReload: () => Promise<void>;
 }
 
 const itemColumns = [
@@ -66,18 +71,58 @@ function itemHasIssue(index: number, issues: FieldIssue[]): boolean {
   return issues.some((issue) => issue.field?.startsWith(`items[${index}]`));
 }
 
-export function StandardJsonPane({ sample }: StandardJsonPaneProps) {
+export function StandardJsonPane({ customer, runId, sample, onReload }: StandardJsonPaneProps) {
+  const [fieldPath, setFieldPath] = useState("");
+  const [correctValue, setCorrectValue] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const draft = sample?.merged_draft ?? {};
   const rows = flattenJson(draft).filter((row) => !row.path.startsWith("items"));
   const items = draftItems(draft);
   const blockingErrors = sample?.report?.blocking_errors ?? [];
+  const correctionCount = sample?.corrections?.corrections?.length ?? 0;
+
+  useEffect(() => {
+    setError("");
+  }, [sample?.sample_key]);
+
+  function selectCorrection(path: string, value: unknown) {
+    setFieldPath(path);
+    setCorrectValue(value === null || value === undefined ? "" : valueText(value));
+    setNote("");
+    setError("");
+  }
+
+  async function saveCorrection(event: FormEvent) {
+    event.preventDefault();
+    if (!sample || !fieldPath.trim()) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await api.saveCorrections(customer, runId, sample.sample_key, [
+        {
+          field: fieldPath.trim(),
+          correct_value: correctValue,
+          note
+        }
+      ]);
+      await onReload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Correction failed");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <section className="pane json-pane">
       <div className="pane-header">
         <div>
           <span className="pane-kicker">Standard JSON</span>
-          <h2>Merged draft</h2>
+          <h2>{correctionCount ? `Merged draft · ${correctionCount} corrections` : "Merged draft"}</h2>
         </div>
         <Braces size={18} />
       </div>
@@ -96,6 +141,9 @@ export function StandardJsonPane({ sample }: StandardJsonPaneProps) {
                     {row.path}
                   </span>
                   <code>{valueText(row.value)}</code>
+                  <button type="button" className="field-edit-button" onClick={() => selectCorrection(row.path, row.value)} title={`Correct ${row.path}`}>
+                    <Pencil size={13} />
+                  </button>
                 </div>
               );
             })}
@@ -117,15 +165,44 @@ export function StandardJsonPane({ sample }: StandardJsonPaneProps) {
                   {items.map((item, index) => (
                     <div className={`items-row ${itemHasIssue(index, blockingErrors) ? "items-blocked" : ""}`} role="row" key={`${valueText(item.line_no)}-${index}`}>
                       {itemColumns.map((column) => (
-                        <code key={column.key} role="cell">
+                        <button
+                          className="item-edit-cell"
+                          key={column.key}
+                          type="button"
+                          role="cell"
+                          onClick={() => selectCorrection(`items[${index}].${column.key}`, item[column.key])}
+                          title={`Correct items[${index}].${column.key}`}
+                        >
                           {tableValueText(item[column.key])}
-                        </code>
+                        </button>
                       ))}
                     </div>
                   ))}
                 </div>
               </div>
             ) : null}
+
+            <form className="correction-editor" onSubmit={saveCorrection}>
+              <div className="correction-fields">
+                <label>
+                  <span>Field</span>
+                  <input value={fieldPath} onChange={(event) => setFieldPath(event.target.value)} placeholder="header.payment_terms" />
+                </label>
+                <label>
+                  <span>Correct Value</span>
+                  <input value={correctValue} onChange={(event) => setCorrectValue(event.target.value)} />
+                </label>
+              </div>
+              <label>
+                <span>Agent Note</span>
+                <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} />
+              </label>
+              <button className="save-correction-button" type="submit" disabled={!sample || !fieldPath.trim() || busy}>
+                <Save size={15} />
+                <span>{busy ? "Saving" : "Save Correction"}</span>
+              </button>
+              {error ? <div className="gate-error">{error}</div> : null}
+            </form>
           </>
         )}
       </div>
