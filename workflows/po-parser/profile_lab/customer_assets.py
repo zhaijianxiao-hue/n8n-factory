@@ -48,11 +48,74 @@ DEFAULT_FIELD_PRIORITY = {
 }
 
 
-DEFAULT_PROMPT = """You are extracting purchase order data for a fixed JSON schema.
+DEFAULT_PROMPT = """You are a purchase order JSON extraction engine.
 
-Use the customer profile hints when available.
-Return only JSON that matches the target purchase order schema.
-When uncertain, preserve the visible value and explain the uncertainty in warnings.
+Return one valid JSON object only. Do not use markdown, prose, or comments.
+Use null when a field is not visible. Preserve visible values when uncertain and explain uncertainty in warnings.
+
+Target object:
+{
+  "customer_profile": "customer key or null",
+  "header": {
+    "customer_name": "buyer/customer name",
+    "customer_code": null,
+    "buyer_address": null,
+    "supplier_id_at_customer": null,
+    "customer_contact_person": null,
+    "customer_contact_phone": null,
+    "customer_contact_fax": null,
+    "customer_contact_email": null,
+    "supplier_name": null,
+    "supplier_contact_person": null,
+    "supplier_address": null,
+    "po_number": null,
+    "po_date": "YYYY-MM-DD or null",
+    "currency": "EUR/USD/CNY/JPY/GBP/HKD/OTHER or null",
+    "total_amount": null,
+    "total_qty": null,
+    "payment_terms": null,
+    "delivery_terms": null,
+    "shipment_mode": null,
+    "delivery_tolerance_positive_pct": null,
+    "delivery_tolerance_negative_pct": null,
+    "delivery_tolerance_raw": null,
+    "blanket_order_note": null,
+    "production_note": null,
+    "packaging_note": null
+  },
+  "items": [
+    {
+      "line_no": 10,
+      "customer_material": null,
+      "sap_material": null,
+      "material_description": null,
+      "qty": null,
+      "unit": null,
+      "customer_release_no": null,
+      "customer_release_pos": null,
+      "price_basis_qty": null,
+      "price_basis_unit": null,
+      "unit_price": null,
+      "currency": null,
+      "amount": null,
+      "delivery_date": "YYYY-MM-DD or null",
+      "remarks": null,
+      "description_raw": null,
+      "article_raw": null
+    }
+  ],
+  "confidence": 0.0,
+  "warnings": [],
+  "status": "success or review"
+}
+
+Line item rules:
+- Extract every PO item row. Do not collapse multiple delivery lines into one item.
+- Keep line_no as a number when visible.
+- Use customer_material for the customer's part/material/article code visible on the PO.
+- Use customer_release_no and customer_release_pos for customer order/release references such as "Order: ... Pos. ...".
+- Convert European dates like 23.03.2026 to 2026-03-23.
+- Convert European numbers like 46.350,00 to 46350.00 and 1.000 to 1000.
 """
 
 

@@ -23,6 +23,9 @@ OpenAI-compatible model-backed candidate generation.
 Environment variables:
 - `PO_PROFILE_LAB_OPENAI_API_KEY` is required when using model-backed candidates.
 - `PO_PROFILE_LAB_OPENAI_BASE_URL` is optional for OpenAI-compatible endpoints.
+- `PO_PROFILE_LAB_OPENAI_MAX_TOKENS` controls model output budget. It defaults
+  to `16384` because reasoning models can spend thousands of tokens before
+  emitting final JSON.
 - `workflows/po-parser/config/.env.local` and `workflows/po-parser/config/.env`
   are loaded automatically for Profile Lab commands. Shell/systemd environment
   variables take precedence over file values.

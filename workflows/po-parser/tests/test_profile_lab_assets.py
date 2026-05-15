@@ -9,7 +9,13 @@ from profile_lab.commands import main
 from profile_lab.customer_assets import create_run, init_customer
 from profile_lab.env_loader import ENV_FILE_ENV, SKIP_ENV_FILE_ENV, _candidate_env_files, load_profile_lab_env
 from profile_lab.paths import PO_PARSER_DIR
-from profile_lab.llm_client import OpenAICompatibleJsonClient, extract_json_object
+from profile_lab.llm_client import (
+    DEFAULT_MAX_TOKENS,
+    MAX_TOKENS_ENV,
+    OpenAICompatibleJsonClient,
+    _resolve_max_tokens,
+    extract_json_object,
+)
 from profile_lab.pdf_pages import sample_key_from_pdf
 from profile_lab.text_candidate import generate_text_candidate_with_model
 from profile_lab.vision_candidate import generate_vision_candidate_with_model
@@ -234,6 +240,16 @@ def test_profile_lab_default_env_files_stay_under_config(monkeypatch):
         PO_PARSER_DIR / "config" / ".env.local",
         PO_PARSER_DIR / "config" / ".env",
     ]
+
+
+def test_profile_lab_openai_max_tokens_defaults_and_overrides(monkeypatch):
+    monkeypatch.delenv(MAX_TOKENS_ENV, raising=False)
+
+    assert _resolve_max_tokens() == DEFAULT_MAX_TOKENS
+
+    monkeypatch.setenv(MAX_TOKENS_ENV, "8192")
+
+    assert _resolve_max_tokens() == 8192
 
 
 def test_text_candidate_uses_model_client(tmp_path):
