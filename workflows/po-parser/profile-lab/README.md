@@ -23,9 +23,9 @@ OpenAI-compatible model-backed candidate generation.
 Environment variables:
 - `PO_PROFILE_LAB_OPENAI_API_KEY` is required when using model-backed candidates.
 - `PO_PROFILE_LAB_OPENAI_BASE_URL` is optional for OpenAI-compatible endpoints.
-- `workflows/po-parser/.env.local` and `workflows/po-parser/config/.env.local`
-  are loaded automatically for Profile Lab commands. Shell environment variables
-  take precedence over file values.
+- `workflows/po-parser/config/.env.local` and `workflows/po-parser/config/.env`
+  are loaded automatically for Profile Lab commands. Shell/systemd environment
+  variables take precedence over file values.
 - `PO_PROFILE_LAB_APPROVAL_WEBHOOK_URL` is optional; when set, approval
   submissions send a notification webhook.
 - `PO_PROFILE_LAB_ADMIN_TOKEN` is required for Admin Review approve, reject,

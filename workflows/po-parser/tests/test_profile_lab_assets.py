@@ -7,7 +7,8 @@ import pytest
 
 from profile_lab.commands import main
 from profile_lab.customer_assets import create_run, init_customer
-from profile_lab.env_loader import ENV_FILE_ENV, SKIP_ENV_FILE_ENV, load_profile_lab_env
+from profile_lab.env_loader import ENV_FILE_ENV, SKIP_ENV_FILE_ENV, _candidate_env_files, load_profile_lab_env
+from profile_lab.paths import PO_PARSER_DIR
 from profile_lab.llm_client import OpenAICompatibleJsonClient, extract_json_object
 from profile_lab.pdf_pages import sample_key_from_pdf
 from profile_lab.text_candidate import generate_text_candidate_with_model
@@ -224,6 +225,15 @@ def test_profile_lab_env_file_loads_openai_settings(tmp_path, monkeypatch):
 
     assert os.environ["PO_PROFILE_LAB_OPENAI_BASE_URL"] == "http://model-host:11434/v1"
     assert os.environ["PO_PROFILE_LAB_OPENAI_API_KEY"] == "ollama"
+
+
+def test_profile_lab_default_env_files_stay_under_config(monkeypatch):
+    monkeypatch.delenv(ENV_FILE_ENV, raising=False)
+
+    assert _candidate_env_files() == [
+        PO_PARSER_DIR / "config" / ".env.local",
+        PO_PARSER_DIR / "config" / ".env",
+    ]
 
 
 def test_text_candidate_uses_model_client(tmp_path):

@@ -34,8 +34,8 @@ def _candidate_env_files() -> list[Path]:
     if configured:
         return [Path(configured)]
     return [
-        PO_PARSER_DIR / ".env.local",
         PO_PARSER_DIR / "config" / ".env.local",
+        PO_PARSER_DIR / "config" / ".env",
     ]
 
 
