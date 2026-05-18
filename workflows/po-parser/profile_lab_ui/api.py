@@ -229,7 +229,12 @@ def create_app(
         pdf_path = current_run_dir / "inputs" / f"{sample_key}.pdf"
         if not pdf_path.exists():
             raise HTTPException(status_code=404, detail="pdf not found")
-        return FileResponse(pdf_path, media_type="application/pdf", filename=pdf_path.name)
+        return FileResponse(
+            pdf_path,
+            media_type="application/pdf",
+            filename=pdf_path.name,
+            content_disposition_type="inline",
+        )
 
     @app.post("/api/customers/{customer}/runs/{run_id}/approve")
     def approve(

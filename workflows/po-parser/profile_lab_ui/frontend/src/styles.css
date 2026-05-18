@@ -1011,6 +1011,13 @@ code {
   box-shadow: 0 0 0 2px rgba(35, 214, 209, 0.12);
 }
 
+.correction-actions {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.7fr) minmax(170px, 1fr);
+  gap: 8px;
+}
+
+.queue-correction-button,
 .save-correction-button {
   min-height: 38px;
   display: inline-flex;
@@ -1023,14 +1030,85 @@ code {
   cursor: pointer;
 }
 
+.queue-correction-button {
+  border-color: rgba(35, 214, 209, 0.42);
+  background: rgba(35, 214, 209, 0.08);
+}
+
 .save-correction-button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
 }
 
+.queue-correction-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.queue-correction-button:hover:not(:disabled) {
+  border-color: var(--cyan);
+  box-shadow: 0 0 18px rgba(35, 214, 209, 0.12);
+}
+
 .save-correction-button:hover:not(:disabled) {
   border-color: var(--ok);
   box-shadow: 0 0 18px rgba(124, 247, 203, 0.12);
+}
+
+.pending-corrections {
+  display: grid;
+  gap: 6px;
+}
+
+.pending-correction-row {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(35, 214, 209, 0.24);
+  background: rgba(35, 214, 209, 0.05);
+  padding: 6px 6px 6px 8px;
+}
+
+.pending-correction-row div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.pending-correction-row strong,
+.pending-correction-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-correction-row strong {
+  color: var(--cyan);
+  font-size: 11px;
+}
+
+.pending-correction-row span {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.pending-correction-row button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.pending-correction-row button:hover {
+  border-color: rgba(255, 111, 97, 0.42);
+  color: var(--danger);
 }
 
 .publishability {
@@ -1317,6 +1395,10 @@ code {
   }
 
   .correction-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .correction-actions {
     grid-template-columns: 1fr;
   }
 

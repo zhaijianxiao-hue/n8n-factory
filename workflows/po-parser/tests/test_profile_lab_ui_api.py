@@ -213,6 +213,11 @@ def test_save_sample_corrections_updates_expected_and_records_notes(tmp_path):
                     "field": "header.payment_terms",
                     "correct_value": "90 days net",
                     "note": "Payment terms are printed in the PO footer.",
+                },
+                {
+                    "field": "items[0].qty",
+                    "correct_value": 3,
+                    "note": "Quantity was corrected during visual review.",
                 }
             ],
         },
@@ -226,6 +231,9 @@ def test_save_sample_corrections_updates_expected_and_records_notes(tmp_path):
     assert corrections["corrections"][0]["wrong_value"] == "30 days net"
     assert corrections["corrections"][0]["correct_value"] == "90 days net"
     assert corrections["corrections"][0]["note"] == "Payment terms are printed in the PO footer."
+    assert expected["items"][0]["qty"] == 3
+    assert corrections["corrections"][1]["field"] == "items[0].qty"
+    assert corrections["corrections"][1]["correct_value"] == 3
     assert payload["samples"][0]["corrections"]["corrections"][0]["field"] == "header.payment_terms"
     assert payload["samples"][0]["report"]["publishable"] is False
     assert any(error["field"] == "header.payment_terms" for error in payload["samples"][0]["report"]["quality_errors"])
@@ -242,6 +250,7 @@ def test_sample_pdf_endpoint_serves_input_pdf(tmp_path):
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
+    assert response.headers["content-disposition"].startswith("inline;")
     assert response.content.startswith(b"%PDF-1.4")
 
 

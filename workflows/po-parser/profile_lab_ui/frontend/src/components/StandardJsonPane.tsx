@@ -1,4 +1,4 @@
-import { Braces, CircleAlert, Pencil, Save } from "lucide-react";
+import { Braces, CircleAlert, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
 import { api } from "../api";
@@ -54,6 +54,13 @@ interface StandardJsonPaneProps {
   onReload: () => Promise<void>;
 }
 
+interface PendingCorrection {
+  id: string;
+  field: string;
+  correct_value: string;
+  note: string;
+}
+
 const itemColumns = [
   { key: "line_no", label: "Line" },
   { key: "customer_material", label: "Material" },
@@ -75,6 +82,7 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
   const [fieldPath, setFieldPath] = useState("");
   const [correctValue, setCorrectValue] = useState("");
   const [note, setNote] = useState("");
+  const [pendingCorrections, setPendingCorrections] = useState<PendingCorrection[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const draft = sample?.merged_draft ?? {};
@@ -85,6 +93,10 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
 
   useEffect(() => {
     setError("");
+    setFieldPath("");
+    setCorrectValue("");
+    setNote("");
+    setPendingCorrections([]);
   }, [sample?.sample_key]);
 
   function selectCorrection(path: string, value: unknown) {
@@ -94,21 +106,57 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
     setError("");
   }
 
+  function addCorrectionToList() {
+    const field = fieldPath.trim();
+    if (!field) {
+      return;
+    }
+    setPendingCorrections((current) => [
+      ...current,
+      {
+        id: `${field}-${Date.now()}`,
+        field,
+        correct_value: correctValue,
+        note
+      }
+    ]);
+    setFieldPath("");
+    setCorrectValue("");
+    setNote("");
+    setError("");
+  }
+
+  function removeCorrection(id: string) {
+    setPendingCorrections((current) => current.filter((correction) => correction.id !== id));
+  }
+
   async function saveCorrection(event: FormEvent) {
     event.preventDefault();
-    if (!sample || !fieldPath.trim()) {
+    const correctionsToSave = pendingCorrections.length
+      ? pendingCorrections
+      : fieldPath.trim()
+        ? [{ id: "current", field: fieldPath.trim(), correct_value: correctValue, note }]
+        : [];
+    if (!sample || correctionsToSave.length === 0) {
       return;
     }
     setBusy(true);
     setError("");
     try {
-      await api.saveCorrections(customer, runId, sample.sample_key, [
-        {
-          field: fieldPath.trim(),
-          correct_value: correctValue,
-          note
-        }
-      ]);
+      await api.saveCorrections(
+        customer,
+        runId,
+        sample.sample_key,
+        correctionsToSave.map((correction) => ({
+          field: correction.field,
+          correct_value: correction.correct_value,
+          note: correction.note
+        }))
+      );
+      setPendingCorrections([]);
+      setFieldPath("");
+      setCorrectValue("");
+      setNote("");
       await onReload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Correction failed");
@@ -197,10 +245,31 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
                 <span>Agent Note</span>
                 <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} />
               </label>
-              <button className="save-correction-button" type="submit" disabled={!sample || !fieldPath.trim() || busy}>
-                <Save size={15} />
-                <span>{busy ? "Saving" : "Save Correction"}</span>
-              </button>
+              <div className="correction-actions">
+                <button className="queue-correction-button" type="button" onClick={addCorrectionToList} disabled={!fieldPath.trim() || busy}>
+                  <Plus size={15} />
+                  <span>Add to List</span>
+                </button>
+                <button className="save-correction-button" type="submit" disabled={!sample || busy || (!fieldPath.trim() && pendingCorrections.length === 0)}>
+                  <Save size={15} />
+                  <span>{busy ? "Saving" : pendingCorrections.length ? `Save ${pendingCorrections.length} Corrections` : "Save Correction"}</span>
+                </button>
+              </div>
+              {pendingCorrections.length ? (
+                <div className="pending-corrections" aria-label="Pending corrections">
+                  {pendingCorrections.map((correction) => (
+                    <div className="pending-correction-row" key={correction.id}>
+                      <div>
+                        <strong>{correction.field}</strong>
+                        <span>{correction.correct_value || "empty value"}</span>
+                      </div>
+                      <button type="button" onClick={() => removeCorrection(correction.id)} title={`Remove ${correction.field}`}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               {error ? <div className="gate-error">{error}</div> : null}
             </form>
           </>
