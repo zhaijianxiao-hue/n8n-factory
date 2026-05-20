@@ -65,7 +65,7 @@ export function ApprovalGate({
     <section className="pane approval-gate">
       <div className="pane-header">
         <div>
-          <span className="pane-kicker">{isAdminMode ? "Admin Gate" : "Business Gate"}</span>
+          <span className="pane-kicker">{isAdminMode ? "Admin Review" : "Review Gate"}</span>
           <h2>{approval?.state ?? "draft"}</h2>
         </div>
         <Rocket size={18} />

@@ -9,6 +9,7 @@ interface PdfEvidencePaneProps {
 export function PdfEvidencePane({ sample }: PdfEvidencePaneProps) {
   const pageImageUrl = typeof sample?.report?.page_image_url === "string" ? sample.report.page_image_url : "";
   const pdfUrl = sample?.pdf_url ?? "";
+  const pdfObjectUrl = pdfUrl ? `${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1&view=FitH` : "";
 
   return (
     <section className="pane evidence-pane">
@@ -20,8 +21,8 @@ export function PdfEvidencePane({ sample }: PdfEvidencePaneProps) {
         <FileText size={18} />
       </div>
 
-      {pdfUrl ? (
-        <object className="evidence-pdf" data={pdfUrl} type="application/pdf" aria-label={sample?.source_file ?? "PDF evidence"}>
+      {pdfObjectUrl ? (
+        <object className="evidence-pdf" data={pdfObjectUrl} type="application/pdf" aria-label={sample?.source_file ?? "PDF evidence"}>
           <a href={pdfUrl} target="_blank" rel="noreferrer">
             {sample?.source_file ?? "Open PDF"}
           </a>

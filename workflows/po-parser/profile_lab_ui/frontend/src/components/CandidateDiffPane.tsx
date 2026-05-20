@@ -33,14 +33,14 @@ export function CandidateDiffPane({ sample }: CandidateDiffPaneProps) {
     <section className="pane diff-pane">
       <div className="pane-header">
         <div>
-          <span className="pane-kicker">Candidate Diff</span>
-          <h2>Text vs Vision</h2>
+          <span className="pane-kicker">Review Check</span>
+          <h2>{issues.length ? "Blocking Issues" : "Clean Sample"}</h2>
         </div>
         <GitCompareArrows size={18} />
       </div>
 
       {issues.length === 0 ? (
-        <div className="empty-pane">No blocking differences for selected sample.</div>
+        <div className="empty-pane compact-empty-pane">No blocking differences for the selected sample.</div>
       ) : (
         <div className="diff-list">
           {issues.slice(0, 8).map((issue, index) => (

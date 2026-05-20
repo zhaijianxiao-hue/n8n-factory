@@ -171,8 +171,8 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
     <section className="pane json-pane">
       <div className="pane-header">
         <div>
-          <span className="pane-kicker">Standard JSON</span>
-          <h2>{correctionCount ? `Merged draft · ${correctionCount} corrections` : "Merged draft"}</h2>
+          <span className="pane-kicker">Review JSON</span>
+          <h2>{correctionCount ? `Draft fields · ${correctionCount} corrections` : "Draft fields"}</h2>
         </div>
         <Braces size={18} />
       </div>
@@ -182,29 +182,13 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
           <div className="empty-pane">No merged draft available.</div>
         ) : (
           <>
-            {rows.slice(0, 42).map((row, index) => {
-              const blocked = hasIssue(row.path, blockingErrors);
-              return (
-                <div className={`json-row ${isHotPath(row.path) ? "json-hot" : ""} ${blocked ? "json-blocked" : ""}`} key={`${row.path}-${index}`}>
-                  <span className="json-path">
-                    {blocked ? <CircleAlert size={13} /> : null}
-                    {row.path}
-                  </span>
-                  <code>{valueText(row.value)}</code>
-                  <button type="button" className="field-edit-button" onClick={() => selectCorrection(row.path, row.value)} title={`Correct ${row.path}`}>
-                    <Pencil size={13} />
-                  </button>
-                </div>
-              );
-            })}
-
             {items.length ? (
               <div className="items-block">
                 <div className="items-title">
-                  <span>Items</span>
+                  <span>Line Items</span>
                   <strong>{items.length}</strong>
                 </div>
-                <div className="items-table" role="table" aria-label="PO items" style={{ minWidth: 1020 }}>
+                <div className="items-table" role="table" aria-label="PO items" style={{ minWidth: 920 }}>
                   <div className="items-row items-head" role="row" style={{ gridTemplateColumns: itemGridTemplate }}>
                     {itemColumns.map((column) => (
                       <span key={column.key} role="columnheader">
@@ -238,6 +222,13 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
             ) : null}
 
             <form className="correction-editor" onSubmit={saveCorrection}>
+              <div className="correction-title">
+                <div>
+                  <span>Correction Queue</span>
+                  <strong>{pendingCorrections.length ? `${pendingCorrections.length} pending` : "Click a field, then save the right value"}</strong>
+                </div>
+                <Pencil size={16} />
+              </div>
               <div className="correction-fields">
                 <label>
                   <span>Field</span>
@@ -279,6 +270,28 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
               ) : null}
               {error ? <div className="gate-error">{error}</div> : null}
             </form>
+
+            <div className="field-list-block">
+              <div className="items-title">
+                <span>Header & Metadata</span>
+                <strong>{rows.length}</strong>
+              </div>
+              {rows.slice(0, 42).map((row, index) => {
+                const blocked = hasIssue(row.path, blockingErrors);
+                return (
+                  <div className={`json-row ${isHotPath(row.path) ? "json-hot" : ""} ${blocked ? "json-blocked" : ""}`} key={`${row.path}-${index}`}>
+                    <span className="json-path">
+                      {blocked ? <CircleAlert size={13} /> : null}
+                      {row.path}
+                    </span>
+                    <code>{valueText(row.value)}</code>
+                    <button type="button" className="field-edit-button" onClick={() => selectCorrection(row.path, row.value)} title={`Correct ${row.path}`}>
+                      <Pencil size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </>
         )}
       </div>

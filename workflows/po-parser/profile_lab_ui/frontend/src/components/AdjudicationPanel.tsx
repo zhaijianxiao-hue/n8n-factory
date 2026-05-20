@@ -23,8 +23,8 @@ export function AdjudicationPanel({ evaluation, approval, sample }: Adjudication
     <section className="pane adjudication-pane">
       <div className="pane-header">
         <div>
-          <span className="pane-kicker">Adjudication</span>
-          <h2>Recommendations</h2>
+          <span className="pane-kicker">Run Guidance</span>
+          <h2>Next Step</h2>
         </div>
         {publishable ? <CheckCheck size={18} /> : <ShieldX size={18} />}
       </div>
