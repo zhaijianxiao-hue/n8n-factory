@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from profile_lab.env_loader import ENV_FILE_ENV
+from profile_lab.env_loader import SKIP_ENV_FILE_ENV
 from profile_lab_ui.api import ADMIN_TOKEN_ENV
 from profile_lab_ui.api import ADMIN_TOKEN_HEADER
 from profile_lab_ui.api import create_app
@@ -134,6 +136,7 @@ def test_admin_actions_require_admin_token(tmp_path, monkeypatch):
 
 def test_admin_actions_block_when_token_not_configured(tmp_path, monkeypatch):
     monkeypatch.delenv(ADMIN_TOKEN_ENV, raising=False)
+    monkeypatch.setenv(SKIP_ENV_FILE_ENV, "1")
     lab_root = tmp_path / "profile-lab"
     create_run(lab_root)
     client = TestClient(create_app(lab_root=lab_root))
@@ -142,6 +145,22 @@ def test_admin_actions_block_when_token_not_configured(tmp_path, monkeypatch):
 
     assert response.status_code == 503
     assert ADMIN_TOKEN_ENV in response.json()["detail"]
+
+
+def test_admin_token_loads_from_profile_lab_env_file(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env.local"
+    env_file.write_text(f"{ADMIN_TOKEN_ENV}=secret-admin-token\n", encoding="utf-8")
+    monkeypatch.setenv(ENV_FILE_ENV, str(env_file))
+    monkeypatch.delenv(SKIP_ENV_FILE_ENV, raising=False)
+    monkeypatch.delenv(ADMIN_TOKEN_ENV, raising=False)
+    lab_root = tmp_path / "profile-lab"
+    create_run(lab_root)
+    client = TestClient(create_app(lab_root=lab_root))
+
+    response = client.post("/api/customers/evytra/runs/run-1/approve", headers=admin_headers(), json={"actor": "admin", "note": "ok"})
+
+    assert response.status_code == 200
+    assert response.json()["state"] == "approved"
 
 
 def test_publish_requires_admin_approval(tmp_path, monkeypatch):

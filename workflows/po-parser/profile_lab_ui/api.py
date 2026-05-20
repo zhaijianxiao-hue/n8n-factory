@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from fastapi.responses import FileResponse
 
 from profile_lab.commands import run_evaluate
+from profile_lab.env_loader import load_profile_lab_env
 from profile_lab.json_io import write_json
 from profile_lab.paths import DEFAULT_LAB_ROOT
 from profile_lab.paths import PRODUCTION_PROFILE_DIR
@@ -129,6 +130,7 @@ def create_app(
     lab_root: Path = DEFAULT_LAB_ROOT,
     production_dir: Path = PRODUCTION_PROFILE_DIR,
 ) -> FastAPI:
+    load_profile_lab_env()
     app = FastAPI(title="PO Profile Lab UI API")
     lab_root = Path(lab_root)
     production_dir = Path(production_dir)
