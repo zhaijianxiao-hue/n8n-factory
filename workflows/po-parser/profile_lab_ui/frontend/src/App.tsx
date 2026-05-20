@@ -133,7 +133,7 @@ export default function App() {
         if (cancelled) {
           return;
         }
-        setError(err instanceof Error ? err.message : "无法加载 Review Workbench");
+        setError(err instanceof Error ? err.message : "无法加载审核工作台");
         setState("error");
       }
     }
@@ -171,7 +171,7 @@ export default function App() {
   async function handleOpenRun(customer: string, runId: string) {
     if (!adminToken.trim()) {
       setApprovalMode("business");
-      setError("Admin token is required before opening an approval run.");
+      setError("打开管理员审核记录前，需要先输入管理员令牌。");
       return;
     }
     setActiveView("workbench");
@@ -199,12 +199,12 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <nav className="view-tabs" aria-label="Profile Lab views">
+      <nav className="view-tabs" aria-label="PO解析工作台视图">
         <div className="app-identity">
           <span className="app-mark">PO</span>
           <div>
-            <strong>Profile Lab</strong>
-            <span>Review workbench</span>
+            <strong>PO解析实验室</strong>
+            <span>审核与调优工作台</span>
           </div>
         </div>
         <button
@@ -216,19 +216,19 @@ export default function App() {
           }}
         >
           <ClipboardCheck size={16} />
-          <span>Workbench</span>
+          <span>工作台</span>
         </button>
         <button className={activeView === "dashboard" ? "active" : ""} type="button" onClick={() => setActiveView("dashboard")}>
           <BarChart3 size={16} />
-          <span>Dashboard</span>
+          <span>看板</span>
         </button>
         <button className={activeView === "admin" ? "active" : ""} type="button" onClick={() => setActiveView("admin")}>
           <ShieldCheck size={16} />
-          <span>Admin Review</span>
+          <span>管理员审核</span>
         </button>
         <div className="app-footnote">
-          <strong>Light operations UI</strong>
-          <span>PDF evidence, correction queue, publish gate.</span>
+          <strong>轻量审核流程</strong>
+          <span>PDF证据、纠错队列、上线门禁。</span>
         </div>
       </nav>
 
@@ -252,7 +252,7 @@ export default function App() {
           <>
             <ScoreStrip evaluation={runDetail.evaluation} samples={runDetail.samples} approval={runDetail.approval} />
 
-            <section className="sample-rail" aria-label="Samples">
+            <section className="sample-rail" aria-label="样本列表">
               {runDetail.samples.map((sample) => (
                 <button
                   className={sample.sample_key === selectedSample?.sample_key ? "sample-tab active" : "sample-tab"}
@@ -262,7 +262,7 @@ export default function App() {
                   title={sample.source_file}
                 >
                   <span>{sample.sample_key}</span>
-                  <strong>{sample.report?.publishable ? "PASS" : "CHECK"}</strong>
+                  <strong>{sample.report?.publishable ? "通过" : "检查"}</strong>
                 </button>
               ))}
             </section>
@@ -289,10 +289,10 @@ export default function App() {
             {state === "loading" ? <Loader2 size={22} className="spin" /> : <AlertTriangle size={22} />}
             <span>
               {state === "loading"
-                ? "Loading review run..."
+                ? "正在加载审核运行..."
                 : state === "empty"
-                  ? "No customer runs are available."
-                  : error || "Workbench unavailable."}
+                  ? "暂无可用的客户运行记录。"
+                  : error || "工作台暂不可用。"}
             </span>
           </section>
         )}

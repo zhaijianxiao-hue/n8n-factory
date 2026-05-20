@@ -1,10 +1,11 @@
 import { AlertOctagon, GitCompareArrows } from "lucide-react";
 
+import { fieldMeta, issueReasonLabel, severityLabel } from "../labels";
 import type { FieldIssue, RunSample } from "../types";
 
 function valueLabel(value: unknown): string {
   if (value === null || value === undefined || value === "") {
-    return "missing";
+    return "缺失";
   }
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return String(value);
@@ -13,11 +14,11 @@ function valueLabel(value: unknown): string {
 }
 
 function issueReason(issue: FieldIssue): string {
-  return issue.reason ?? issue.message ?? "field mismatch";
+  return issueReasonLabel(issue.reason ?? issue.message);
 }
 
 function expectedLabel(issue: FieldIssue): string {
-  return issue.reason === "business rule mismatch" ? "Rule target" : "Expected";
+  return issue.reason === "business rule mismatch" ? "规则目标" : "期望值";
 }
 
 interface CandidateDiffPaneProps {
@@ -33,36 +34,39 @@ export function CandidateDiffPane({ sample }: CandidateDiffPaneProps) {
     <section className="pane diff-pane">
       <div className="pane-header">
         <div>
-          <span className="pane-kicker">Review Check</span>
-          <h2>{issues.length ? "Blocking Issues" : "Clean Sample"}</h2>
+          <span className="pane-kicker">复核检查</span>
+          <h2>{issues.length ? "阻断问题" : "样本通过"}</h2>
         </div>
         <GitCompareArrows size={18} />
       </div>
 
       {issues.length === 0 ? (
-        <div className="empty-pane compact-empty-pane">No blocking differences for the selected sample.</div>
+        <div className="empty-pane compact-empty-pane">当前样本暂无阻断差异。</div>
       ) : (
         <div className="diff-list">
-          {issues.slice(0, 8).map((issue, index) => (
-            <article className="diff-row" key={`${issue.field}-${index}`}>
-              <div className="diff-title">
-                <AlertOctagon size={15} />
-                <strong>{issue.field || "unknown field"}</strong>
-                <span>{issue.severity ?? "p0"}</span>
-              </div>
-              <p>{issueReason(issue)}</p>
-              <div className="diff-values">
-                <div>
-                  <span>{expectedLabel(issue)}</span>
-                  <code>{valueLabel(issue.expected)}</code>
+          {issues.slice(0, 8).map((issue, index) => {
+            const meta = issue.field ? fieldMeta(issue.field) : null;
+            return (
+              <article className="diff-row" key={`${issue.field}-${index}`}>
+                <div className="diff-title">
+                  <AlertOctagon size={15} />
+                  <strong>{meta ? `${meta.label}（${issue.field}）` : "未知字段"}</strong>
+                  <span>{severityLabel(issue.severity)}</span>
                 </div>
-                <div>
-                  <span>Actual</span>
-                  <code>{valueLabel(issue.actual)}</code>
+                <p>{issueReason(issue)}</p>
+                <div className="diff-values">
+                  <div>
+                    <span>{expectedLabel(issue)}</span>
+                    <code>{valueLabel(issue.expected)}</code>
+                  </div>
+                  <div>
+                    <span>实际值</span>
+                    <code>{valueLabel(issue.actual)}</code>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       )}
     </section>

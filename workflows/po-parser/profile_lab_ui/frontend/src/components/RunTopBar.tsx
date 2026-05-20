@@ -1,5 +1,6 @@
 import { Activity, GitBranch, ShieldCheck } from "lucide-react";
 
+import { approvalStateLabel } from "../labels";
 import type { ApprovalRecord, CustomerSummary, RunSummary } from "../types";
 
 interface RunTopBarProps {
@@ -24,13 +25,13 @@ export function RunTopBar({
   return (
     <header className="run-topbar">
       <div className="brand-lockup">
-        <span className="eyebrow">REVIEW FIRST</span>
-        <h1>PO Profile Lab</h1>
+        <span className="eyebrow">先审核后上线</span>
+        <h1>PO解析实验室</h1>
       </div>
 
-      <div className="topbar-controls" aria-label="Run context">
+      <div className="topbar-controls" aria-label="运行上下文">
         <label className="control-field">
-          <span>Customer</span>
+          <span>客户</span>
           <select value={selectedCustomer} onChange={(event) => onCustomerChange(event.target.value)}>
             {customers.map((customer) => (
               <option key={customer.customer_key} value={customer.customer_key}>
@@ -41,7 +42,7 @@ export function RunTopBar({
         </label>
 
         <label className="control-field">
-          <span>Run</span>
+          <span>运行批次</span>
           <select value={selectedRunId} onChange={(event) => onRunChange(event.target.value)}>
             {runs.map((run) => (
               <option key={run.run_id} value={run.run_id}>
@@ -55,16 +56,16 @@ export function RunTopBar({
       <div className="topbar-state">
         <div className={`state-chip state-${approval?.state ?? "draft"}`}>
           <ShieldCheck size={16} />
-          <span>{approval?.state ?? "draft"}</span>
+          <span>{approvalStateLabel(approval?.state)}</span>
         </div>
         <div className="action-hints">
           <span>
             <Activity size={14} />
-            Review
+            审核
           </span>
           <span>
             <GitBranch size={14} />
-            Gate in panel
+            右侧门禁
           </span>
         </div>
       </div>

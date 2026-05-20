@@ -15,22 +15,22 @@ export function PdfEvidencePane({ sample }: PdfEvidencePaneProps) {
     <section className="pane evidence-pane">
       <div className="pane-header">
         <div>
-          <span className="pane-kicker">PDF Evidence</span>
-          <h2>{sample?.source_file ?? "No sample"}</h2>
+          <span className="pane-kicker">PDF证据</span>
+          <h2>{sample?.source_file ?? "暂无样本"}</h2>
         </div>
         <FileText size={18} />
       </div>
 
       {pdfObjectUrl ? (
-        <object className="evidence-pdf" data={pdfObjectUrl} type="application/pdf" aria-label={sample?.source_file ?? "PDF evidence"}>
+        <object className="evidence-pdf" data={pdfObjectUrl} type="application/pdf" aria-label={sample?.source_file ?? "PDF证据"}>
           <a href={pdfUrl} target="_blank" rel="noreferrer">
-            {sample?.source_file ?? "Open PDF"}
+            {sample?.source_file ?? "打开PDF"}
           </a>
         </object>
       ) : pageImageUrl ? (
-        <img className="evidence-image" src={pageImageUrl} alt={sample?.source_file ?? "PDF evidence"} />
+        <img className="evidence-image" src={pageImageUrl} alt={sample?.source_file ?? "PDF证据"} />
       ) : (
-        <div className="pdf-placeholder" aria-label="PDF evidence placeholder">
+        <div className="pdf-placeholder" aria-label="PDF证据占位">
           <div className="pdf-page">
             <div className="pdf-band" />
             <div className="pdf-line wide" />
@@ -42,7 +42,7 @@ export function PdfEvidencePane({ sample }: PdfEvidencePaneProps) {
             </div>
             <div className="scan-marker">
               <ScanLine size={18} />
-              <span>{sample?.sample_key ?? "sample"}</span>
+              <span>{sample?.sample_key ?? "样本"}</span>
             </div>
           </div>
         </div>

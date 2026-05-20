@@ -2,6 +2,7 @@ import { Braces, CircleAlert, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
 import { api } from "../api";
+import { fieldMeta } from "../labels";
 import type { FieldIssue, RunSample } from "../types";
 
 function valueText(value: unknown): string {
@@ -61,16 +62,7 @@ interface PendingCorrection {
   note: string;
 }
 
-const itemColumns = [
-  { key: "line_no", label: "Line" },
-  { key: "customer_material", label: "Material" },
-  { key: "material_description", label: "Description" },
-  { key: "qty", label: "Qty" },
-  { key: "delivery_date", label: "Delivery" },
-  { key: "unit_price", label: "Unit Price" },
-  { key: "amount", label: "Amount" }
-];
-const itemGridTemplate = "58px minmax(140px, 1.1fr) minmax(220px, 1.8fr) 74px 112px 96px 96px";
+const itemDetailFields = ["qty", "unit", "delivery_date", "unit_price", "price_basis_qty", "amount", "currency"];
 
 function draftItems(draft: Record<string, unknown>): Array<Record<string, unknown>> {
   return Array.isArray(draft.items) ? draft.items.filter((item): item is Record<string, unknown> => item !== null && typeof item === "object") : [];
@@ -161,7 +153,7 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
       setNote("");
       await onReload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Correction failed");
+      setError(err instanceof Error ? err.message : "保存纠错失败");
     } finally {
       setBusy(false);
     }
@@ -171,50 +163,77 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
     <section className="pane json-pane">
       <div className="pane-header">
         <div>
-          <span className="pane-kicker">Review JSON</span>
-          <h2>{correctionCount ? `Draft fields · ${correctionCount} corrections` : "Draft fields"}</h2>
+          <span className="pane-kicker">解析结果</span>
+          <h2>{correctionCount ? `字段草稿 · 已保存 ${correctionCount} 条纠错` : "字段草稿"}</h2>
         </div>
         <Braces size={18} />
       </div>
 
       <div className="json-list">
         {rows.length === 0 && items.length === 0 ? (
-          <div className="empty-pane">No merged draft available.</div>
+          <div className="empty-pane">暂无合并后的解析草稿。</div>
         ) : (
           <>
             {items.length ? (
               <div className="items-block">
                 <div className="items-title">
-                  <span>Line Items</span>
-                  <strong>{items.length}</strong>
+                  <span>采购明细</span>
+                  <strong>{items.length} 行</strong>
                 </div>
-                <div className="items-table" role="table" aria-label="PO items" style={{ minWidth: 920 }}>
-                  <div className="items-row items-head" role="row" style={{ gridTemplateColumns: itemGridTemplate }}>
-                    {itemColumns.map((column) => (
-                      <span key={column.key} role="columnheader">
-                        {column.label}
-                      </span>
-                    ))}
-                  </div>
+                <div className="items-table item-card-list" role="table" aria-label="采购明细">
                   {items.map((item, index) => (
                     <div
-                      className={`items-row ${itemHasIssue(index, blockingErrors) ? "items-blocked" : ""}`}
+                      className={`item-card ${itemHasIssue(index, blockingErrors) ? "items-blocked" : ""}`}
                       role="row"
                       key={`${valueText(item.line_no)}-${index}`}
-                      style={{ gridTemplateColumns: itemGridTemplate }}
                     >
-                      {itemColumns.map((column) => (
+                      <div className="item-card-main">
                         <button
-                          className="item-edit-cell"
-                          key={column.key}
+                          className="item-line-chip"
                           type="button"
                           role="cell"
-                          onClick={() => selectCorrection(`items[${index}].${column.key}`, item[column.key])}
-                          title={`Correct items[${index}].${column.key}`}
+                          onClick={() => selectCorrection(`items[${index}].line_no`, item.line_no)}
+                          title="修改行号"
                         >
-                          {tableValueText(item[column.key])}
+                          第 {tableValueText(item.line_no)} 行
                         </button>
-                      ))}
+                        <button
+                          className="item-material"
+                          type="button"
+                          role="cell"
+                          onClick={() => selectCorrection(`items[${index}].customer_material`, item.customer_material)}
+                          title="修改客户物料号"
+                        >
+                          {tableValueText(item.customer_material)}
+                        </button>
+                      </div>
+                      <button
+                        className="item-description"
+                        type="button"
+                        role="cell"
+                        onClick={() => selectCorrection(`items[${index}].material_description`, item.material_description)}
+                        title="修改客户物料描述"
+                      >
+                        {tableValueText(item.material_description)}
+                      </button>
+                      <div className="item-card-fields">
+                        {itemDetailFields.map((key) => {
+                          const meta = fieldMeta(`items[${index}].${key}`);
+                          return (
+                            <button
+                              className="item-mini-field"
+                              key={key}
+                              type="button"
+                              role="cell"
+                              onClick={() => selectCorrection(`items[${index}].${key}`, item[key])}
+                              title={`修改${meta.label}`}
+                            >
+                              <span>{meta.label}</span>
+                              <strong>{tableValueText(item[key])}</strong>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -224,44 +243,44 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
             <form className="correction-editor" onSubmit={saveCorrection}>
               <div className="correction-title">
                 <div>
-                  <span>Correction Queue</span>
-                  <strong>{pendingCorrections.length ? `${pendingCorrections.length} pending` : "Click a field, then save the right value"}</strong>
+                  <span>纠错队列</span>
+                  <strong>{pendingCorrections.length ? `${pendingCorrections.length} 条待保存` : "点击字段后填写正确值，可一次保存多条"}</strong>
                 </div>
                 <Pencil size={16} />
               </div>
               <div className="correction-fields">
                 <label>
-                  <span>Field</span>
-                  <input value={fieldPath} onChange={(event) => setFieldPath(event.target.value)} placeholder="header.payment_terms" />
+                  <span>字段路径</span>
+                  <input value={fieldPath} onChange={(event) => setFieldPath(event.target.value)} placeholder="例如 header.payment_terms" />
                 </label>
                 <label>
-                  <span>Correct Value</span>
+                  <span>正确值</span>
                   <input value={correctValue} onChange={(event) => setCorrectValue(event.target.value)} />
                 </label>
               </div>
               <label>
-                <span>Agent Note</span>
+                <span>给调优助手的说明</span>
                 <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} />
               </label>
               <div className="correction-actions">
                 <button className="queue-correction-button" type="button" onClick={addCorrectionToList} disabled={!fieldPath.trim() || busy}>
                   <Plus size={15} />
-                  <span>Add to List</span>
+                  <span>加入列表</span>
                 </button>
                 <button className="save-correction-button" type="submit" disabled={!sample || busy || (!fieldPath.trim() && pendingCorrections.length === 0)}>
                   <Save size={15} />
-                  <span>{busy ? "Saving" : pendingCorrections.length ? `Save ${pendingCorrections.length} Corrections` : "Save Correction"}</span>
+                  <span>{busy ? "保存中" : pendingCorrections.length ? `保存 ${pendingCorrections.length} 条纠错` : "保存纠错"}</span>
                 </button>
               </div>
               {pendingCorrections.length ? (
-                <div className="pending-corrections" aria-label="Pending corrections">
+                <div className="pending-corrections" aria-label="待保存纠错">
                   {pendingCorrections.map((correction) => (
                     <div className="pending-correction-row" key={correction.id}>
                       <div>
                         <strong>{correction.field}</strong>
-                        <span>{correction.correct_value || "empty value"}</span>
+                        <span>{correction.correct_value || "空值"}</span>
                       </div>
-                      <button type="button" onClick={() => removeCorrection(correction.id)} title={`Remove ${correction.field}`}>
+                      <button type="button" onClick={() => removeCorrection(correction.id)} title={`移除 ${correction.field}`}>
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -273,19 +292,24 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
 
             <div className="field-list-block">
               <div className="items-title">
-                <span>Header & Metadata</span>
-                <strong>{rows.length}</strong>
+                <span>抬头与元数据</span>
+                <strong>{rows.length} 项</strong>
               </div>
               {rows.slice(0, 42).map((row, index) => {
                 const blocked = hasIssue(row.path, blockingErrors);
+                const meta = fieldMeta(row.path);
                 return (
                   <div className={`json-row ${isHotPath(row.path) ? "json-hot" : ""} ${blocked ? "json-blocked" : ""}`} key={`${row.path}-${index}`}>
-                    <span className="json-path">
-                      {blocked ? <CircleAlert size={13} /> : null}
-                      {row.path}
-                    </span>
+                    <div className="json-field-meta">
+                      <span className="json-path">
+                        {blocked ? <CircleAlert size={13} /> : null}
+                        {row.path}
+                      </span>
+                      <strong>{meta.label}</strong>
+                      <small>{meta.description}</small>
+                    </div>
                     <code>{valueText(row.value)}</code>
-                    <button type="button" className="field-edit-button" onClick={() => selectCorrection(row.path, row.value)} title={`Correct ${row.path}`}>
+                    <button type="button" className="field-edit-button" onClick={() => selectCorrection(row.path, row.value)} title={`修改${meta.label}`}>
                       <Pencil size={13} />
                     </button>
                   </div>

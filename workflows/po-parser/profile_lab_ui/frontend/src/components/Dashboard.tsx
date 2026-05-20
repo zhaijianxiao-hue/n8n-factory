@@ -1,5 +1,6 @@
 import { AlertOctagon, Archive, CheckCircle2, Clock3, Database, Users } from "lucide-react";
 
+import { approvalStateLabel } from "../labels";
 import type { CustomerSummary, RunSummary } from "../types";
 
 interface DashboardProps {
@@ -50,26 +51,26 @@ export function Dashboard({ customers, runs }: DashboardProps) {
   );
 
   return (
-    <section className="dashboard-view" aria-label="Dashboard">
+    <section className="dashboard-view" aria-label="看板">
       <div className="metric-grid">
         <div className="metric-card">
           <Users size={17} />
-          <span>Customers</span>
+          <span>客户数</span>
           <strong>{customers.length}</strong>
         </div>
         <div className="metric-card">
           <Database size={17} />
-          <span>Total Runs</span>
+          <span>运行总数</span>
           <strong>{runs.length}</strong>
         </div>
         <div className="metric-card">
           <Clock3 size={17} />
-          <span>Submitted</span>
+          <span>待审核</span>
           <strong>{submittedCount}</strong>
         </div>
         <div className="metric-card">
           <CheckCircle2 size={17} />
-          <span>Published</span>
+          <span>已上线</span>
           <strong>{publishedCount}</strong>
         </div>
       </div>
@@ -77,8 +78,8 @@ export function Dashboard({ customers, runs }: DashboardProps) {
       <div className="dashboard-grid">
         <section className="console-panel latest-runs-panel">
           <div className="panel-title">
-            <span className="pane-kicker">Latest Runs</span>
-            <h2>Recent profile lab output</h2>
+            <span className="pane-kicker">最新运行</span>
+            <h2>最近的客户解析档案结果</h2>
           </div>
           <div className="run-table">
             {latestRuns.length ? (
@@ -87,15 +88,15 @@ export function Dashboard({ customers, runs }: DashboardProps) {
                   <span>{customerName(customers, run.customer)}</span>
                   <code>{run.run_id}</code>
                   <strong>{scorePercent(runScore(run))}</strong>
-                  <span>{run.sample_count} samples</span>
-                  <span className={`state-pill state-${run.approval?.state ?? "draft"}`}>{run.approval?.state ?? "draft"}</span>
+                  <span>{run.sample_count} 个样本</span>
+                  <span className={`state-pill state-${run.approval?.state ?? "draft"}`}>{approvalStateLabel(run.approval?.state)}</span>
                   <time>{formatDate(run.created_at)}</time>
                 </div>
               ))
             ) : (
               <div className="compact-empty">
                 <Archive size={16} />
-                <span>No runs loaded.</span>
+                <span>暂无运行记录。</span>
               </div>
             )}
           </div>
@@ -103,8 +104,8 @@ export function Dashboard({ customers, runs }: DashboardProps) {
 
         <section className="console-panel blockers-panel">
           <div className="panel-title">
-            <span className="pane-kicker">P0 Blockers</span>
-            <h2>Customers requiring correction</h2>
+            <span className="pane-kicker">P0阻断</span>
+            <h2>需要纠错的客户</h2>
           </div>
           <div className="blocker-list">
             {blockedCustomers.length ? (
@@ -121,7 +122,7 @@ export function Dashboard({ customers, runs }: DashboardProps) {
             ) : (
               <div className="compact-empty">
                 <CheckCircle2 size={16} />
-                <span>No blocking P0 issues.</span>
+                <span>暂无P0阻断问题。</span>
               </div>
             )}
           </div>

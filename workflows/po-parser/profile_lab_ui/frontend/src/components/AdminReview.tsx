@@ -1,5 +1,6 @@
 import { Bell, ExternalLink, Inbox, Lock, ShieldAlert } from "lucide-react";
 
+import { notificationLabel } from "../labels";
 import type { CustomerSummary, RunSummary } from "../types";
 
 interface AdminReviewProps {
@@ -39,22 +40,22 @@ export function AdminReview({ customers, runs, adminToken, onAdminTokenChange, o
     .sort((left, right) => (right.approval?.submitted_at ?? right.created_at ?? "").localeCompare(left.approval?.submitted_at ?? left.created_at ?? ""));
 
   return (
-    <section className="admin-review-view" aria-label="Admin Review">
+    <section className="admin-review-view" aria-label="管理员审核">
       <div className="console-panel review-queue-panel">
         <div className="panel-title">
-          <span className="pane-kicker">Admin Review</span>
-          <h2>Submitted runs waiting for approval</h2>
+          <span className="pane-kicker">管理员审核</span>
+          <h2>等待批准的提交记录</h2>
         </div>
 
         {!isUnlocked ? (
           <div className="admin-lock-panel">
             <Lock size={18} />
             <div>
-              <strong>Admin token required</strong>
-              <span>Enter the configured review token to unlock approval and publish actions.</span>
+              <strong>需要管理员令牌</strong>
+              <span>输入已配置的审核令牌后，才能执行批准和上线操作。</span>
             </div>
             <input
-              aria-label="Admin token"
+              aria-label="管理员令牌"
               autoComplete="off"
               placeholder="PO_PROFILE_LAB_ADMIN_TOKEN"
               type="password"
@@ -75,28 +76,28 @@ export function AdminReview({ customers, runs, adminToken, onAdminTokenChange, o
                 </div>
                 <dl className="admin-run-meta">
                   <div>
-                    <dt>Score</dt>
+                    <dt>分数</dt>
                     <dd>{scorePercent(run.evaluation?.overall_score)}</dd>
                   </div>
                   <div>
-                    <dt>Samples</dt>
+                    <dt>样本</dt>
                     <dd>{run.sample_count}</dd>
                   </div>
                   <div>
-                    <dt>Notify</dt>
+                    <dt>通知</dt>
                     <dd>
                       <Bell size={13} />
-                      {run.approval?.notification_status ?? "not sent"}
+                      {notificationLabel(run.approval?.notification_status)}
                     </dd>
                   </div>
                   <div>
-                    <dt>Submitted</dt>
+                    <dt>提交时间</dt>
                     <dd>{formatDate(run.approval?.submitted_at ?? run.created_at)}</dd>
                   </div>
                 </dl>
                 <button type="button" className="open-run-button" onClick={() => onOpenRun(run.customer, run.run_id)}>
                   <ExternalLink size={15} />
-                  <span>Open</span>
+                  <span>打开</span>
                 </button>
               </article>
             ))}
@@ -104,7 +105,7 @@ export function AdminReview({ customers, runs, adminToken, onAdminTokenChange, o
         ) : (
           <div className="compact-empty admin-empty">
             <Inbox size={18} />
-            <span>No submitted runs are waiting for approval.</span>
+            <span>暂无等待批准的提交记录。</span>
           </div>
         )}
       </div>

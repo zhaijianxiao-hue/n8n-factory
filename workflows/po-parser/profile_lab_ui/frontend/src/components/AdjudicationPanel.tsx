@@ -1,5 +1,6 @@
 import { Bell, CheckCheck, ListChecks, ShieldX } from "lucide-react";
 
+import { approvalStateLabel, fieldMeta, issueReasonLabel, notificationLabel } from "../labels";
 import type { ApprovalRecord, EvaluationSummary, RunSample } from "../types";
 
 interface AdjudicationPanelProps {
@@ -11,27 +12,30 @@ interface AdjudicationPanelProps {
 export function AdjudicationPanel({ evaluation, approval, sample }: AdjudicationPanelProps) {
   const blockingErrors = sample?.report?.blocking_errors ?? [];
   const publishable = evaluation?.publishable === true;
-  const notificationStatus = approval?.notification_status ?? "not sent";
+  const notificationStatus = notificationLabel(approval?.notification_status);
   const recommendations =
     blockingErrors.length > 0
-      ? blockingErrors.slice(0, 4).map((issue) => `Fix ${issue.field || "field"}: ${issue.reason ?? issue.message ?? "blocking mismatch"}`)
+      ? blockingErrors.slice(0, 4).map((issue) => {
+          const meta = issue.field ? fieldMeta(issue.field) : null;
+          return `请修正${meta?.label ?? "字段"}：${issueReasonLabel(issue.reason ?? issue.message)}`;
+        })
       : publishable
-        ? ["P0 gate is clean for the selected evidence.", "Ready for admin approval once business submits."]
-        : ["Review business rule score and sample coverage before approval."];
+        ? ["当前样本P0门禁已通过。", "业务提交后即可进入管理员审核。"]
+        : ["上线前请复核业务规则分数和样本覆盖情况。"];
 
   return (
     <section className="pane adjudication-pane">
       <div className="pane-header">
         <div>
-          <span className="pane-kicker">Run Guidance</span>
-          <h2>Next Step</h2>
+          <span className="pane-kicker">运行建议</span>
+          <h2>下一步</h2>
         </div>
         {publishable ? <CheckCheck size={18} /> : <ShieldX size={18} />}
       </div>
 
       <div className={`publishability ${publishable ? "publishable" : "not-publishable"}`}>
-        <span>{publishable ? "Publishable" : "Needs review"}</span>
-        <strong>{approval?.state ?? "draft"}</strong>
+        <span>{publishable ? "可上线" : "需复核"}</span>
+        <strong>{approvalStateLabel(approval?.state)}</strong>
       </div>
 
       <div className="recommendation-list">

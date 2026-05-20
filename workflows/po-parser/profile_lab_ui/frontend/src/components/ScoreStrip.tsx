@@ -1,5 +1,6 @@
 import { Ban, CheckCircle2, Gauge, Rows3, ShieldAlert } from "lucide-react";
 
+import { approvalStateLabel } from "../labels";
 import type { ApprovalRecord, EvaluationReport, EvaluationSummary, RunSample } from "../types";
 
 function average(values: number[]): number | null {
@@ -51,31 +52,31 @@ export function ScoreStrip({ evaluation, samples, approval }: ScoreStripProps) {
   const sampleCount = evaluation?.sample_count ?? samples.length;
 
   return (
-    <section className="score-strip" aria-label="Run scores">
+    <section className="score-strip" aria-label="运行评分">
       <div className="score-cell primary-score">
         <Gauge size={18} />
-        <span>Overall</span>
+        <span>总分</span>
         <strong>{scorePercent(deriveOverallScore(evaluation))}</strong>
       </div>
       <div className={`score-cell ${p0Pass ? "score-ok" : "score-danger"}`}>
         {p0Pass ? <CheckCircle2 size={18} /> : <Ban size={18} />}
         <span>P0</span>
-        <strong>{p0Pass === undefined ? "--" : p0Pass ? "PASS" : "BLOCK"}</strong>
+        <strong>{p0Pass === undefined ? "--" : p0Pass ? "通过" : "阻断"}</strong>
       </div>
       <div className="score-cell">
         <Rows3 size={18} />
-        <span>Samples</span>
+        <span>样本</span>
         <strong>{sampleCount}</strong>
       </div>
       <div className="score-cell">
         <ShieldAlert size={18} />
-        <span>Business</span>
+        <span>业务规则</span>
         <strong>{scorePercent(deriveBusinessRulesScore(evaluation))}</strong>
       </div>
       <div className="score-cell gate-cell">
         <CheckCircle2 size={18} />
-        <span>Gate</span>
-        <strong>{approval?.state ?? "draft"}</strong>
+        <span>门禁</span>
+        <strong>{approvalStateLabel(approval?.state)}</strong>
       </div>
     </section>
   );
