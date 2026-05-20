@@ -831,13 +831,14 @@ code {
 }
 
 .items-block {
+  min-width: 0;
   display: grid;
   gap: 9px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: #fbfdff;
   padding: 10px;
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .items-title {
