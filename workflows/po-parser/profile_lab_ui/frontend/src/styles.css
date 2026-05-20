@@ -862,12 +862,67 @@ code {
 .items-table {
   display: grid;
   gap: 8px;
-  overflow: hidden;
+  overflow: visible;
   background: transparent;
 }
 
 .item-card-list {
   min-width: 0;
+}
+
+.item-summary-list {
+  display: grid;
+  gap: 6px;
+}
+
+.item-summary-row {
+  min-width: 0;
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: 64px minmax(94px, 0.76fr) minmax(150px, 1.45fr) minmax(72px, 0.6fr) minmax(94px, 0.72fr) minmax(78px, 0.6fr);
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #b8d8ef;
+  border-radius: var(--radius-sm);
+  background: #f4faff;
+  padding: 7px 9px;
+  text-align: left;
+}
+
+.item-summary-row span,
+.item-summary-row strong,
+.item-summary-row em,
+.item-summary-row b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-summary-row span {
+  color: var(--blue-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.item-summary-row strong,
+.item-summary-row b {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.item-summary-row em {
+  color: var(--text);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.item-summary-row:hover,
+.item-summary-row:focus-visible {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  outline: 3px solid rgba(11, 111, 174, 0.14);
 }
 
 .items-row {
@@ -924,12 +979,14 @@ code {
 
 .item-card {
   min-width: 0;
+  min-height: 168px;
   display: grid;
   gap: 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: #ffffff;
   padding: 9px;
+  box-shadow: 0 8px 20px rgba(16, 32, 53, 0.05);
 }
 
 .item-card-main {
@@ -1732,6 +1789,14 @@ code {
 
   .json-row {
     grid-template-columns: 1fr;
+  }
+
+  .item-summary-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .item-summary-row em {
+    grid-column: 1 / -1;
   }
 
   .field-edit-button {

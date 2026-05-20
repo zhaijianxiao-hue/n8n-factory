@@ -180,6 +180,24 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
                   <span>采购明细</span>
                   <strong>{items.length} 行</strong>
                 </div>
+                <div className="item-summary-list" aria-label="采购明细摘要">
+                  {items.map((item, index) => (
+                    <button
+                      className="item-summary-row"
+                      key={`summary-${valueText(item.line_no)}-${index}`}
+                      type="button"
+                      onClick={() => selectCorrection(`items[${index}].material_description`, item.material_description)}
+                      title="点击修改客户物料描述"
+                    >
+                      <span>第 {tableValueText(item.line_no)} 行</span>
+                      <strong>{tableValueText(item.customer_material)}</strong>
+                      <em>{tableValueText(item.material_description)}</em>
+                      <b>{tableValueText(item.qty)} {tableValueText(item.unit)}</b>
+                      <b>{tableValueText(item.delivery_date)}</b>
+                      <b>{tableValueText(item.amount)}</b>
+                    </button>
+                  ))}
+                </div>
                 <div className="items-table item-card-list" role="table" aria-label="采购明细">
                   {items.map((item, index) => (
                     <div
