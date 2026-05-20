@@ -1,0 +1,1494 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UI/UX Pro Max Showcase - PO Profile Lab</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Fira+Sans:wght@400;500;600;700;800&display=swap");
+
+    :root {
+      --ink: #08111f;
+      --text: #122033;
+      --muted: #667085;
+      --paper: #f6f8fb;
+      --surface: #ffffff;
+      --surface-strong: #eef3f8;
+      --line: #d8e1ec;
+      --line-strong: #bdc9d7;
+      --navy: #0f172a;
+      --blue: #0369a1;
+      --cyan: #0e7490;
+      --green: #11845b;
+      --amber: #b45309;
+      --red: #c0262d;
+      --violet: #5b4acb;
+      --shadow: 0 24px 70px rgba(15, 23, 42, 0.11);
+      --radius: 8px;
+      --radius-sm: 5px;
+      --mono: "Fira Code", ui-monospace, SFMono-Regular, Consolas, monospace;
+      --sans: "Fira Sans", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, #e9eef5 0, rgba(233, 238, 245, 0) 360px),
+        repeating-linear-gradient(90deg, rgba(8, 17, 31, 0.04) 0 1px, transparent 1px 80px),
+        var(--paper);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      min-height: 44px;
+      border: 0;
+      cursor: pointer;
+    }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 252px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 18px;
+      background: #0b1220;
+      color: #e7edf5;
+      border-right: 1px solid rgba(255, 255, 255, 0.12);
+      overflow: auto;
+    }
+
+    .brand {
+      display: grid;
+      gap: 12px;
+      padding: 8px 4px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius);
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #e8f3ff, #7dd3fc 52%, #145369);
+      color: #07111f;
+      font-family: var(--mono);
+      font-weight: 800;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.75);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.1;
+    }
+
+    .brand p,
+    .nav-label,
+    .side-note {
+      margin: 0;
+      color: #a8b3c4;
+      line-height: 1.45;
+      font-size: 13px;
+    }
+
+    .nav {
+      display: grid;
+      gap: 6px;
+      padding: 20px 0;
+    }
+
+    .nav a {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      border-radius: var(--radius-sm);
+      color: #cfdae8;
+      text-decoration: none;
+      transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+    }
+
+    .nav a:hover,
+    .nav a:focus-visible {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      outline: 2px solid rgba(125, 211, 252, 0.65);
+      outline-offset: 2px;
+    }
+
+    .nav a.active {
+      background: #e8f3ff;
+      color: #07111f;
+      font-weight: 700;
+    }
+
+    .side-meter {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .side-meter strong {
+      display: block;
+      margin-bottom: 10px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #ffffff;
+    }
+
+    .mini-bar {
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.15);
+      overflow: hidden;
+    }
+
+    .mini-bar span {
+      display: block;
+      width: 86%;
+      height: 100%;
+      background: linear-gradient(90deg, #38bdf8, #22c55e);
+    }
+
+    .main {
+      min-width: 0;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 28px;
+      background: rgba(246, 248, 251, 0.88);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(16px);
+    }
+
+    .crumb {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .crumb strong {
+      color: var(--ink);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .btn {
+      min-width: 44px;
+      padding: 0 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 700;
+      transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .btn:hover,
+    .btn:focus-visible {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+      outline: 2px solid rgba(3, 105, 161, 0.45);
+      outline-offset: 2px;
+    }
+
+    .btn.primary {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #ffffff;
+    }
+
+    .content {
+      padding: 28px;
+      display: grid;
+      gap: 24px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.86fr) minmax(320px, 1.14fr);
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .hero-copy {
+      padding: 28px;
+      border-radius: var(--radius);
+      background: var(--navy);
+      color: #f8fbff;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero-copy::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 4px;
+      background: linear-gradient(90deg, #38bdf8, #22c55e, #f59e0b, #ef4444);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #bae6fd;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .hero h2 {
+      margin: 18px 0 12px;
+      font-size: clamp(34px, 5vw, 62px);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 62ch;
+      color: #cbd7e7;
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .hero-actions .btn {
+      border-color: rgba(255, 255, 255, 0.24);
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+    }
+
+    .hero-actions .btn.primary {
+      background: #e8f3ff;
+      color: #07111f;
+    }
+
+    .workbench {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 440px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .workbench-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 62px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfdff;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 0 6px rgba(17, 132, 91, 0.12);
+    }
+
+    .workbench-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .workbench-title h3,
+    .section-title h3,
+    .panel h3 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .workbench-title span,
+    .section-title p,
+    .panel p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .segmented {
+      display: flex;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: #eef3f8;
+      overflow: hidden;
+    }
+
+    .segmented button {
+      min-height: 38px;
+      padding: 0 12px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .segmented button.active {
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.05);
+    }
+
+    .workbench-grid {
+      display: grid;
+      grid-template-columns: 210px minmax(260px, 1fr) minmax(270px, 0.85fr);
+      min-height: 0;
+    }
+
+    .queue {
+      padding: 12px;
+      border-right: 1px solid var(--line);
+      background: #f9fbfd;
+      overflow: auto;
+    }
+
+    .queue-item {
+      display: grid;
+      gap: 7px;
+      padding: 10px;
+      margin-bottom: 8px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      transition: border-color 160ms ease, transform 160ms ease;
+    }
+
+    .queue-item:hover {
+      transform: translateX(2px);
+      border-color: #9db1c6;
+    }
+
+    .queue-item.active {
+      border-left-color: var(--blue);
+      background: #eef8ff;
+    }
+
+    .queue-item.warning {
+      border-left-color: var(--amber);
+    }
+
+    .queue-item.error {
+      border-left-color: var(--red);
+    }
+
+    .queue-item strong {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--ink);
+    }
+
+    .queue-item span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .evidence {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
+      background: #dde5ef;
+    }
+
+    .evidence-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #c5d2df;
+      background: #eef3f8;
+    }
+
+    .pdf-page {
+      margin: 18px auto;
+      width: min(82%, 430px);
+      min-height: 520px;
+      padding: 26px 24px;
+      background: #ffffff;
+      border: 1px solid #c8d3df;
+      border-radius: 2px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+    }
+
+    .pdf-line {
+      height: 9px;
+      margin-bottom: 10px;
+      border-radius: 20px;
+      background: #d9e2ed;
+    }
+
+    .pdf-line.short {
+      width: 54%;
+    }
+
+    .pdf-line.mid {
+      width: 78%;
+    }
+
+    .pdf-table {
+      margin-top: 28px;
+      border: 1px solid #d5dfeb;
+      border-bottom: 0;
+    }
+
+    .pdf-row {
+      display: grid;
+      grid-template-columns: 1fr 0.8fr 0.6fr;
+      border-bottom: 1px solid #d5dfeb;
+    }
+
+    .pdf-row span {
+      min-height: 34px;
+      padding: 8px;
+      border-right: 1px solid #d5dfeb;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: #536579;
+    }
+
+    .pdf-row span:last-child {
+      border-right: 0;
+    }
+
+    .pdf-row.marked span:nth-child(2) {
+      background: #fff7ed;
+      box-shadow: inset 0 0 0 2px rgba(180, 83, 9, 0.2);
+    }
+
+    .review {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding: 14px;
+      border-left: 1px solid var(--line);
+      background: #ffffff;
+      overflow: auto;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field label {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      padding: 10px 11px;
+      color: var(--text);
+      background: #ffffff;
+    }
+
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus {
+      outline: 3px solid rgba(3, 105, 161, 0.2);
+      border-color: var(--blue);
+    }
+
+    .field textarea {
+      min-height: 86px;
+      resize: vertical;
+    }
+
+    .correction-stack {
+      display: grid;
+      gap: 8px;
+    }
+
+    .correction {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: #f8fafc;
+    }
+
+    .correction strong {
+      display: block;
+      margin-bottom: 4px;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .correction span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      min-height: 136px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      display: grid;
+      align-content: space-between;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+    }
+
+    .metric small {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .metric strong {
+      font-family: var(--mono);
+      font-size: 30px;
+      color: var(--ink);
+      letter-spacing: 0;
+    }
+
+    .metric .delta {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 28px;
+      padding: 0 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .delta.good {
+      background: #e8f7ef;
+      color: var(--green);
+    }
+
+    .delta.warn {
+      background: #fff4e5;
+      color: var(--amber);
+    }
+
+    .delta.bad {
+      background: #fdecef;
+      color: var(--red);
+    }
+
+    .section {
+      display: grid;
+      gap: 14px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .section-title p {
+      max-width: 68ch;
+      margin: 6px 0 0;
+    }
+
+    .panel-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .panel-grid.two {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .panel {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+    }
+
+    .panel p {
+      margin: 7px 0 0;
+    }
+
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .swatch {
+      min-height: 84px;
+      border-radius: var(--radius-sm);
+      padding: 9px;
+      color: #ffffff;
+      display: flex;
+      align-items: end;
+      font-family: var(--mono);
+      font-size: 10px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .type-sample {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .type-sample .display {
+      font-family: var(--mono);
+      font-size: clamp(28px, 5vw, 50px);
+      font-weight: 700;
+      line-height: 0.96;
+      color: var(--ink);
+    }
+
+    .type-sample .body {
+      max-width: 58ch;
+      line-height: 1.65;
+      color: var(--muted);
+    }
+
+    .chart-card {
+      min-height: 330px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .bars {
+      display: grid;
+      align-content: end;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 8px;
+      height: 180px;
+      padding: 8px;
+      border-left: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .bar {
+      display: grid;
+      align-content: end;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .bar span {
+      display: block;
+      min-height: 18px;
+      border-radius: 4px 4px 0 0;
+      background: linear-gradient(180deg, var(--cyan), #083344);
+      animation: rise 650ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .bar small {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .line-chart {
+      width: 100%;
+      min-height: 210px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background:
+        linear-gradient(rgba(216, 225, 236, 0.8) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(216, 225, 236, 0.8) 1px, transparent 1px);
+      background-size: 100% 52px, 72px 100%;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .timeline-row {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr) 44px;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .track {
+      height: 9px;
+      border-radius: 999px;
+      background: #edf2f7;
+      overflow: hidden;
+    }
+
+    .track span {
+      display: block;
+      height: 100%;
+      background: var(--blue);
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .before,
+    .after {
+      min-height: 230px;
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      border: 1px solid var(--line);
+    }
+
+    .before {
+      background: #fafafa;
+      color: #6b7280;
+    }
+
+    .after {
+      background: #f0f7ff;
+      color: #0b2f45;
+      border-color: #b6d8ee;
+    }
+
+    .fake-block {
+      height: 28px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      background: currentColor;
+      opacity: 0.12;
+    }
+
+    .fake-block.short {
+      width: 58%;
+    }
+
+    .fake-block.tall {
+      height: 86px;
+    }
+
+    .quality-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .quality-item {
+      min-height: 44px;
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: #fbfdff;
+    }
+
+    .quality-item strong {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--ink);
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .tag {
+      min-height: 30px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 9px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: #ffffff;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .mobile-wrap {
+      display: grid;
+      place-items: center;
+      min-height: 520px;
+      background: linear-gradient(135deg, #f8fafc, #e6edf6);
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+    }
+
+    .phone {
+      width: min(100%, 322px);
+      min-height: 470px;
+      border: 10px solid #101827;
+      border-radius: 28px;
+      background: #f7fafc;
+      overflow: hidden;
+      box-shadow: 0 22px 56px rgba(15, 23, 42, 0.2);
+    }
+
+    .phone-head {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      color: #ffffff;
+      background: #0f172a;
+    }
+
+    .phone-head strong {
+      font-size: 15px;
+    }
+
+    .phone-body {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .mobile-task {
+      min-height: 72px;
+      padding: 10px;
+      border: 1px solid #d8e1ec;
+      border-radius: var(--radius);
+      background: #ffffff;
+    }
+
+    .mobile-task strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+    }
+
+    .mobile-task span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .mobile-nav {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 8px 12px 14px;
+    }
+
+    .mobile-nav button {
+      min-height: 48px;
+      border-radius: var(--radius-sm);
+      background: #e8eef5;
+      color: #344054;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .mobile-nav button.active {
+      background: var(--blue);
+      color: #ffffff;
+    }
+
+    .footer-band {
+      margin-top: 4px;
+      padding: 20px;
+      border-radius: var(--radius);
+      background: var(--ink);
+      color: #e8eef7;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .footer-band p {
+      margin: 0;
+      color: #b8c4d3;
+      line-height: 1.6;
+    }
+
+    @keyframes rise {
+      from {
+        transform: scaleY(0.2);
+        transform-origin: bottom;
+        opacity: 0.4;
+      }
+      to {
+        transform: scaleY(1);
+        transform-origin: bottom;
+        opacity: 1;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+
+    @media (max-width: 1180px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        height: auto;
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .nav {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .hero,
+      .panel-grid.two {
+        grid-template-columns: 1fr;
+      }
+
+      .workbench-grid {
+        grid-template-columns: 180px minmax(240px, 1fr);
+      }
+
+      .review {
+        grid-column: 1 / -1;
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .metrics,
+      .panel-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .topbar,
+      .section-title,
+      .footer-band,
+      .workbench-head {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .content {
+        padding: 16px;
+      }
+
+      .hero-copy {
+        padding: 22px;
+      }
+
+      .metrics,
+      .panel-grid,
+      .swatches,
+      .compare {
+        grid-template-columns: 1fr;
+      }
+
+      .workbench-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .queue,
+      .review {
+        border: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .pdf-page {
+        width: calc(100% - 28px);
+        min-height: 440px;
+      }
+
+      .nav {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Showcase navigation">
+      <div class="brand">
+        <div class="brand-mark">UX</div>
+        <div>
+          <h1>UI/UX Pro Max</h1>
+          <p>PO Profile Lab 视觉能力展示</p>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Page sections">
+        <a class="active" href="#workbench">工作台 <span>01</span></a>
+        <a href="#system">设计系统 <span>02</span></a>
+        <a href="#charts">数据表达 <span>03</span></a>
+        <a href="#mobile">移动适配 <span>04</span></a>
+        <a href="#quality">质量检查 <span>05</span></a>
+      </nav>
+
+      <div class="side-meter">
+        <strong>Design readiness 86%</strong>
+        <div class="mini-bar" aria-hidden="true"><span></span></div>
+        <p class="side-note">适合继续推进到真实页面重构，但需要你确认最终气质。</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="crumb">
+          <span>n8n-projects</span>
+          <span>/</span>
+          <strong>PO Profile Lab redesign showcase</strong>
+        </div>
+        <div class="toolbar" aria-label="Demo actions">
+          <button class="btn">Light</button>
+          <button class="btn">Dense</button>
+          <button class="btn primary">Approve style</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="hero" id="workbench">
+          <div class="hero-copy">
+            <span class="eyebrow">B2B OPERATIONS / REVIEW FIRST</span>
+            <h2>把 PO 解析台做成真正的审核工作站。</h2>
+            <p>
+              这个样板把重点放在高密度信息、PDF 证据、字段纠错、发布门禁和异常队列上。
+              它不是漂亮壳子，而是让业务人员可以更快判断、纠正、复评、上线 profile。
+            </p>
+            <div class="hero-actions">
+              <button class="btn primary">看工作台</button>
+              <button class="btn">看设计系统</button>
+            </div>
+          </div>
+
+          <div class="workbench" aria-label="PO Profile Lab demo workbench">
+            <div class="workbench-head">
+              <div class="workbench-title">
+                <span class="status-dot" aria-hidden="true"></span>
+                <div>
+                  <h3>EVYTRA / Run 2026-05-20</h3>
+                  <span>双候选结果、PDF 证据、批量纠错同屏处理</span>
+                </div>
+              </div>
+              <div class="segmented" aria-label="View switch">
+                <button class="active">Review</button>
+                <button>Diff</button>
+                <button>Publish</button>
+              </div>
+            </div>
+
+            <div class="workbench-grid">
+              <div class="queue" aria-label="Review queue">
+                <div class="queue-item active">
+                  <strong>PO-250520-018</strong>
+                  <span>amount mismatch / P1</span>
+                </div>
+                <div class="queue-item warning">
+                  <strong>PO-250520-017</strong>
+                  <span>payment_terms missing</span>
+                </div>
+                <div class="queue-item">
+                  <strong>PO-250520-016</strong>
+                  <span>ready to publish</span>
+                </div>
+                <div class="queue-item error">
+                  <strong>PO-250520-015</strong>
+                  <span>customer material empty</span>
+                </div>
+                <div class="queue-item">
+                  <strong>PO-250520-014</strong>
+                  <span>approved baseline</span>
+                </div>
+              </div>
+
+              <div class="evidence" aria-label="PDF evidence">
+                <div class="evidence-tools">
+                  <strong>Original PDF evidence</strong>
+                  <div class="segmented">
+                    <button class="active">Page 1</button>
+                    <button>Page 2</button>
+                  </div>
+                </div>
+                <div class="pdf-page" role="img" aria-label="PDF evidence mockup with highlighted table cell">
+                  <div class="pdf-line short"></div>
+                  <div class="pdf-line mid"></div>
+                  <div class="pdf-line"></div>
+                  <div class="pdf-table">
+                    <div class="pdf-row">
+                      <span>Material</span><span>Qty</span><span>Amount</span>
+                    </div>
+                    <div class="pdf-row">
+                      <span>7165-0008</span><span>2,400</span><span>8,640</span>
+                    </div>
+                    <div class="pdf-row marked">
+                      <span>7165-0011</span><span>1,200</span><span>4,320</span>
+                    </div>
+                    <div class="pdf-row">
+                      <span>7165-0020</span><span>900</span><span>3,240</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="review" aria-label="Correction form">
+                <div class="field">
+                  <label for="field-name">纠错字段</label>
+                  <select id="field-name">
+                    <option>items[1].price_basis_qty</option>
+                    <option>header.payment_terms</option>
+                    <option>items[2].customer_material</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="correct-value">人工确认值</label>
+                  <input id="correct-value" value="1000" aria-describedby="correct-value-help">
+                </div>
+                <div class="field">
+                  <label for="reason">为什么错，该怎么取</label>
+                  <textarea id="reason">PDF 表格中价格单位为 /1000 PCS，金额校验应使用 qty / price_basis_qty * unit_price。</textarea>
+                </div>
+                <div class="correction-stack">
+                  <div class="correction">
+                    <strong>header.payment_terms</strong>
+                    <span>从 PDF 页眉付款条款区域补齐</span>
+                  </div>
+                  <div class="correction">
+                    <strong>items[1].price_basis_qty</strong>
+                    <span>进入待保存纠错列表</span>
+                  </div>
+                </div>
+                <button class="btn primary">Save corrections & rerun</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="metrics" aria-label="KPI metrics">
+          <div class="metric">
+            <small>Profile pass rate</small>
+            <strong>92.4%</strong>
+            <span class="delta good">+8.1 after tuning</span>
+          </div>
+          <div class="metric">
+            <small>P0 blockers</small>
+            <strong>0</strong>
+            <span class="delta good">publish gate clear</span>
+          </div>
+          <div class="metric">
+            <small>Queued corrections</small>
+            <strong>12</strong>
+            <span class="delta warn">needs approval</span>
+          </div>
+          <div class="metric">
+            <small>Parser drift</small>
+            <strong>3.8%</strong>
+            <span class="delta bad">watch EVYTRA row 2</span>
+          </div>
+        </section>
+
+        <section class="section" id="system">
+          <div class="section-title">
+            <div>
+              <h3>设计系统能力</h3>
+              <p>展示颜色、字体、密度、状态和控件风格，不是单纯换皮。这个方向强调可信、精准、可扫描。</p>
+            </div>
+            <button class="btn">Export tokens</button>
+          </div>
+
+          <div class="panel-grid two">
+            <article class="panel">
+              <h3>Color tokens</h3>
+              <p>深色用于导航和门禁，蓝色用于主动作，青色用于数据，绿/黄/红承担状态含义。</p>
+              <div class="swatches">
+                <div class="swatch" style="background:#0f172a">#0F172A</div>
+                <div class="swatch" style="background:#0369a1">#0369A1</div>
+                <div class="swatch" style="background:#0e7490">#0E7490</div>
+                <div class="swatch" style="background:#11845b">#11845B</div>
+                <div class="swatch" style="background:#b45309">#B45309</div>
+                <div class="swatch" style="background:#c0262d">#C0262D</div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <h3>Typography</h3>
+              <p>标题和关键数字用等宽字体强化“数据工具”气质，正文保持可读性和中文兼容。</p>
+              <div class="type-sample">
+                <div class="display">P0 / P1 / P2<br>publish gate</div>
+                <div class="body">
+                  字段纠错、PDF 证据、评测结果、发布门禁需要明确的信息层级。
+                  大字号只留给关键状态，表格和审核区保持紧凑但不拥挤。
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="panel-grid">
+            <article class="panel">
+              <h3>Interaction states</h3>
+              <p>按钮、队列项、表单焦点都有清晰反馈，键盘导航时也能看到 focus。</p>
+              <div class="tag-row">
+                <span class="tag">hover</span>
+                <span class="tag">focus-visible</span>
+                <span class="tag">disabled</span>
+                <span class="tag">loading</span>
+                <span class="tag">reduced motion</span>
+              </div>
+            </article>
+            <article class="panel">
+              <h3>Density control</h3>
+              <p>不是做成大卡片堆叠，而是按审核路径组织：队列、证据、纠错、评测同屏出现。</p>
+              <div class="timeline">
+                <div class="timeline-row"><span>Queue</span><div class="track"><span style="width:92%"></span></div><strong>92</strong></div>
+                <div class="timeline-row"><span>Evidence</span><div class="track"><span style="width:86%"></span></div><strong>86</strong></div>
+                <div class="timeline-row"><span>Correction</span><div class="track"><span style="width:78%"></span></div><strong>78</strong></div>
+              </div>
+            </article>
+            <article class="panel">
+              <h3>Before / after</h3>
+              <p>展示 skill 能做的不只是“好看”，还包括减少散乱、强化主任务路径。</p>
+              <div class="compare">
+                <div class="before" aria-label="Before layout mockup">
+                  <div class="fake-block"></div>
+                  <div class="fake-block tall"></div>
+                  <div class="fake-block short"></div>
+                </div>
+                <div class="after" aria-label="After layout mockup">
+                  <div class="fake-block short"></div>
+                  <div class="fake-block"></div>
+                  <div class="fake-block tall"></div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="charts">
+          <div class="section-title">
+            <div>
+              <h3>数据表达能力</h3>
+              <p>针对评测类产品，优先使用 bullet chart、趋势线、直接标签和可见数值，避免只靠颜色判断。</p>
+            </div>
+          </div>
+
+          <div class="panel-grid two">
+            <article class="panel chart-card">
+              <div>
+                <h3>Field accuracy by profile</h3>
+                <p>适合横向比较多个客户 profile 的 P0/P1/P2 表现。</p>
+              </div>
+              <div class="bars" role="img" aria-label="Bar chart showing field accuracy by profile">
+                <div class="bar"><span style="height:68%"></span><small>EVY</small></div>
+                <div class="bar"><span style="height:52%"></span><small>ABC</small></div>
+                <div class="bar"><span style="height:77%"></span><small>MEL</small></div>
+                <div class="bar"><span style="height:61%"></span><small>KIN</small></div>
+                <div class="bar"><span style="height:83%"></span><small>SUN</small></div>
+                <div class="bar"><span style="height:44%"></span><small>TOP</small></div>
+                <div class="bar"><span style="height:72%"></span><small>NOV</small></div>
+                <div class="bar"><span style="height:91%"></span><small>QIN</small></div>
+              </div>
+            </article>
+
+            <article class="panel chart-card">
+              <div>
+                <h3>Publish readiness trend</h3>
+                <p>趋势线用于展示调优前后变化，阴影区表达风险范围。</p>
+              </div>
+              <svg class="line-chart" viewBox="0 0 640 210" role="img" aria-label="Line chart showing publish readiness trend">
+                <defs>
+                  <linearGradient id="band" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.22"></stop>
+                    <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.03"></stop>
+                  </linearGradient>
+                </defs>
+                <path d="M42 156 C120 132 138 142 202 112 C275 76 312 106 370 72 C452 24 501 66 598 34 L598 138 C500 158 438 114 372 150 C300 180 248 126 196 160 C124 188 88 170 42 190 Z" fill="url(#band)"></path>
+                <path d="M42 156 C120 132 138 142 202 112 C275 76 312 106 370 72 C452 24 501 66 598 34" fill="none" stroke="#0369a1" stroke-width="5" stroke-linecap="round"></path>
+                <path d="M42 190 C120 166 138 176 202 146 C275 110 312 140 370 106 C452 58 501 100 598 68" fill="none" stroke="#b45309" stroke-width="3" stroke-dasharray="9 9" stroke-linecap="round"></path>
+                <g fill="#08111f" font-family="Fira Code, monospace" font-size="18" font-weight="700">
+                  <text x="496" y="32">92.4%</text>
+                  <text x="486" y="82">risk band</text>
+                </g>
+              </svg>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="mobile">
+          <div class="section-title">
+            <div>
+              <h3>移动端与窄屏适配</h3>
+              <p>如果后面要给手机或窄屏审核场景用，布局会从三栏工作站收敛为任务列表、证据摘要和底部操作。</p>
+            </div>
+          </div>
+
+          <div class="panel-grid two">
+            <div class="mobile-wrap">
+              <div class="phone" aria-label="Mobile preview">
+                <div class="phone-head">
+                  <strong>Review queue</strong>
+                  <span>12 pending</span>
+                </div>
+                <div class="phone-body">
+                  <div class="mobile-task">
+                    <strong>PO-250520-018</strong>
+                    <span>P1 amount mismatch, evidence ready</span>
+                  </div>
+                  <div class="mobile-task">
+                    <strong>PO-250520-017</strong>
+                    <span>payment_terms missing, needs manual input</span>
+                  </div>
+                  <div class="mobile-task">
+                    <strong>PO-250520-016</strong>
+                    <span>ready to publish after admin approval</span>
+                  </div>
+                </div>
+                <div class="mobile-nav">
+                  <button class="active">Queue</button>
+                  <button>PDF</button>
+                  <button>Save</button>
+                </div>
+              </div>
+            </div>
+
+            <article class="panel">
+              <h3>Responsive rules</h3>
+              <p>窄屏不强行塞三栏，而是保留任务优先级。触控目标保持 44px 以上，文字不靠 hover 才可见。</p>
+              <div class="quality-list">
+                <div class="quality-item"><strong>375px</strong><span>队列优先，证据和纠错折叠到后续区域</span></div>
+                <div class="quality-item"><strong>768px</strong><span>队列 + PDF 双栏，纠错区下沉</span></div>
+                <div class="quality-item"><strong>1024px</strong><span>完整三栏工作站，适合桌面审核</span></div>
+                <div class="quality-item"><strong>1440px</strong><span>提高数据密度，保留稳定行高和卡片宽度</span></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="quality">
+          <div class="section-title">
+            <div>
+              <h3>交付前质量检查</h3>
+              <p>这类 skill 最有价值的地方，是在“视觉好看”之外帮我固定验收标准。</p>
+            </div>
+          </div>
+
+          <div class="panel-grid">
+            <article class="panel">
+              <h3>Accessibility</h3>
+              <p>颜色对比、可见焦点、语义 label、键盘导航和 reduced-motion 都进入检查范围。</p>
+              <div class="tag-row">
+                <span class="tag">4.5:1 contrast</span>
+                <span class="tag">focus ring</span>
+                <span class="tag">labels</span>
+              </div>
+            </article>
+            <article class="panel">
+              <h3>Performance</h3>
+              <p>优先使用 CSS 和 SVG，避免不必要的大图和复杂动效；表格多时再考虑虚拟列表。</p>
+              <div class="tag-row">
+                <span class="tag">stable layout</span>
+                <span class="tag">no CLS</span>
+                <span class="tag">lazy heavy views</span>
+              </div>
+            </article>
+            <article class="panel">
+              <h3>Product fit</h3>
+              <p>这个产品不是宣传页，而是审核和调优工具，所以要克制、可扫描、任务路径清楚。</p>
+              <div class="tag-row">
+                <span class="tag">review-first</span>
+                <span class="tag">data-dense</span>
+                <span class="tag">publish-gated</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="footer-band">
+          <div>
+            <strong>下一步可以把这个方向迁移到真实 PO Profile Lab。</strong>
+            <p>确认风格后，再进入第 3 步：改现有页面的设计、布局、样式和交互。</p>
+          </div>
+          <button class="btn primary">Use this direction</button>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

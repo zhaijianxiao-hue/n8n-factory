@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, BarChart3, ClipboardCheck, Loader2, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { api } from "./api";
@@ -200,6 +200,13 @@ export default function App() {
   return (
     <main className="app-shell">
       <nav className="view-tabs" aria-label="Profile Lab views">
+        <div className="app-identity">
+          <span className="app-mark">PO</span>
+          <div>
+            <strong>Profile Lab</strong>
+            <span>Review workbench</span>
+          </div>
+        </div>
         <button
           className={activeView === "workbench" ? "active" : ""}
           type="button"
@@ -208,14 +215,21 @@ export default function App() {
             setApprovalMode("business");
           }}
         >
-          Workbench
+          <ClipboardCheck size={16} />
+          <span>Workbench</span>
         </button>
         <button className={activeView === "dashboard" ? "active" : ""} type="button" onClick={() => setActiveView("dashboard")}>
-          Dashboard
+          <BarChart3 size={16} />
+          <span>Dashboard</span>
         </button>
         <button className={activeView === "admin" ? "active" : ""} type="button" onClick={() => setActiveView("admin")}>
-          Admin Review
+          <ShieldCheck size={16} />
+          <span>Admin Review</span>
         </button>
+        <div className="app-footnote">
+          <strong>Light operations UI</strong>
+          <span>PDF evidence, correction queue, publish gate.</span>
+        </div>
       </nav>
 
       {activeView === "dashboard" ? <Dashboard customers={customers} runs={allRuns} /> : null}
