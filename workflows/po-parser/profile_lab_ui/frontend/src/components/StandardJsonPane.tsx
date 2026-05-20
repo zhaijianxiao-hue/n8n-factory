@@ -64,11 +64,13 @@ interface PendingCorrection {
 const itemColumns = [
   { key: "line_no", label: "Line" },
   { key: "customer_material", label: "Material" },
+  { key: "material_description", label: "Description" },
   { key: "qty", label: "Qty" },
   { key: "delivery_date", label: "Delivery" },
   { key: "unit_price", label: "Unit Price" },
   { key: "amount", label: "Amount" }
 ];
+const itemGridTemplate = "58px minmax(140px, 1.1fr) minmax(220px, 1.8fr) 74px 112px 96px 96px";
 
 function draftItems(draft: Record<string, unknown>): Array<Record<string, unknown>> {
   return Array.isArray(draft.items) ? draft.items.filter((item): item is Record<string, unknown> => item !== null && typeof item === "object") : [];
@@ -202,8 +204,8 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
                   <span>Items</span>
                   <strong>{items.length}</strong>
                 </div>
-                <div className="items-table" role="table" aria-label="PO items">
-                  <div className="items-row items-head" role="row">
+                <div className="items-table" role="table" aria-label="PO items" style={{ minWidth: 1020 }}>
+                  <div className="items-row items-head" role="row" style={{ gridTemplateColumns: itemGridTemplate }}>
                     {itemColumns.map((column) => (
                       <span key={column.key} role="columnheader">
                         {column.label}
@@ -211,7 +213,12 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
                     ))}
                   </div>
                   {items.map((item, index) => (
-                    <div className={`items-row ${itemHasIssue(index, blockingErrors) ? "items-blocked" : ""}`} role="row" key={`${valueText(item.line_no)}-${index}`}>
+                    <div
+                      className={`items-row ${itemHasIssue(index, blockingErrors) ? "items-blocked" : ""}`}
+                      role="row"
+                      key={`${valueText(item.line_no)}-${index}`}
+                      style={{ gridTemplateColumns: itemGridTemplate }}
+                    >
                       {itemColumns.map((column) => (
                         <button
                           className="item-edit-cell"
