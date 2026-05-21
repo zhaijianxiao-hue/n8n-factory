@@ -73,6 +73,7 @@ class ArtifactRepository:
                     "customer_key": customer_key,
                     "display_name": display_name,
                     "run_count": len(self._run_dirs(customer_dir.name)),
+                    "sample_count": len(self._sample_files(customer_dir.name)),
                 }
             )
         return sorted(rows, key=lambda row: row["customer_key"])
@@ -120,6 +121,12 @@ class ArtifactRepository:
             return []
         return sorted(path for path in runs_dir.iterdir() if path.is_dir())
 
+    def _sample_files(self, customer: str) -> list[Path]:
+        samples_dir = self._customer_dir(customer) / "samples"
+        if not samples_dir.exists():
+            return []
+        return sorted(path for path in samples_dir.iterdir() if path.is_file() and path.suffix.lower() == ".pdf")
+
     def _sample_artifacts(self, run_dir: Path, manifest: dict[str, Any]) -> list[dict[str, Any]]:
         samples = []
         for sample in manifest.get("samples", []):
@@ -129,6 +136,7 @@ class ArtifactRepository:
                     "sample_key": sample_key,
                     "source_file": sample,
                     "pdf_url": f"/api/customers/{manifest.get('customer', '')}/runs/{manifest.get('run_id', run_dir.name)}/samples/{sample_key}/pdf",
+                    "page_image_url": f"/api/customers/{manifest.get('customer', '')}/runs/{manifest.get('run_id', run_dir.name)}/samples/{sample_key}/page-image",
                     "text_candidate": read_json(run_dir / "candidates" / "text" / f"{sample_key}.json", default={}),
                     "vision_candidate": read_json(run_dir / "candidates" / "vision" / f"{sample_key}.json", default={}),
                     "merged_draft": read_json(run_dir / "adjudication" / f"{sample_key}.merged_draft.json", default={}),

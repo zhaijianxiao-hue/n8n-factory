@@ -1,4 +1,4 @@
-import { Braces, CircleAlert, Pencil, Plus, Save, Trash2 } from "lucide-react";
+import { BadgeCheck, Braces, CircleAlert, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
 import { api } from "../api";
@@ -78,6 +78,7 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
   const [note, setNote] = useState("");
   const [pendingCorrections, setPendingCorrections] = useState<PendingCorrection[]>([]);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
   const draft = sample?.merged_draft ?? {};
   const rows = flattenJson(draft).filter((row) => !row.path.startsWith("items"));
@@ -159,6 +160,22 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
     }
   }
 
+  async function confirmExpected() {
+    if (!sample) {
+      return;
+    }
+    setConfirming(true);
+    setError("");
+    try {
+      await api.confirmExpected(customer, runId, sample.sample_key);
+      await onReload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "确认标准答案失败");
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   return (
     <section className="pane json-pane">
       <div className="pane-header">
@@ -166,7 +183,13 @@ export function StandardJsonPane({ customer, runId, sample, onReload }: Standard
           <span className="pane-kicker">解析结果</span>
           <h2>{correctionCount ? `字段草稿 · 已保存 ${correctionCount} 条纠错` : "字段草稿"}</h2>
         </div>
-        <Braces size={18} />
+        <div className="json-pane-actions">
+          <button type="button" className="confirm-expected-button compact" onClick={confirmExpected} disabled={!sample || busy || confirming}>
+            <BadgeCheck size={15} />
+            <span>{confirming ? "确认中" : "确认答案"}</span>
+          </button>
+          <Braces size={18} />
+        </div>
       </div>
 
       <div className="json-list">

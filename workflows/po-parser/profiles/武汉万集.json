@@ -1,0 +1,44 @@
+{
+  "profile_name": "武汉万集",
+  "version": "0.1.0",
+  "status": "production",
+  "markers": [
+    "武汉万集光电技术有限公司",
+    "采购订单",
+    "wanji.net.cn"
+  ],
+  "number_format": {
+    "decimal_separator": ".",
+    "thousands_separator": ","
+  },
+  "item_rules": {},
+  "last_run_id": "2026-05-20-test-1",
+  "last_score": {
+    "customer": "武汉万集",
+    "run_id": "2026-05-20-test-1",
+    "sample_count": 1,
+    "publishable": true,
+    "reports": [
+      {
+        "overall_score": 1.0,
+        "publishable": true,
+        "schema_pass": true,
+        "p0_pass": true,
+        "item_row_count_match": true,
+        "scores": {
+          "header": 1.0,
+          "items": 1.0,
+          "p1": 1.0,
+          "business_rules": 1.0
+        },
+        "blocking_errors": [],
+        "quality_errors": [],
+        "recommendation": "publishable",
+        "sample_key": "武汉万集",
+        "report_path": "武汉万集.report.json",
+        "expected_missing": false
+      }
+    ]
+  },
+  "published_at": "2026-05-20T11:54:41+08:00"
+}

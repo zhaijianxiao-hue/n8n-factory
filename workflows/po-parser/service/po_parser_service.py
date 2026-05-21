@@ -18,10 +18,45 @@ from pydantic import BaseModel
 from typing import Optional, List
 import uvicorn
 
+PO_PARSER_DIR = Path(__file__).resolve().parents[1]
+
+
+def load_local_env_file(env_file: Path) -> None:
+    if not env_file.exists():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+try:
+    from profile_lab.env_loader import load_profile_lab_env
+
+    load_profile_lab_env()
+except Exception:
+    load_local_env_file(PO_PARSER_DIR / "config" / ".env.local")
+
 app = FastAPI(title="PO Parser Service", version="1.0.0")
 
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://10.142.1.112:11434/v1")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:27b")
+DEFAULT_OPENAI_BASE_URL = "https://ai.docker.tcl.com/imaas/v1"
+DEFAULT_TEXT_MODEL = "DeepSeek-V4-Pro"
+DEFAULT_VISION_MODEL = "Qwen3.5-27B"
+OPENAI_BASE_URL = os.getenv("PO_PARSER_OPENAI_BASE_URL") or os.getenv("OLLAMA_URL", DEFAULT_OPENAI_BASE_URL)
+OPENAI_API_KEY = os.getenv("PO_PARSER_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("OLLAMA_API_KEY", "ollama")
+TEXT_MODEL = os.getenv("PO_PARSER_TEXT_MODEL") or os.getenv("OLLAMA_MODEL", DEFAULT_TEXT_MODEL)
+VISION_MODEL = os.getenv("PO_PARSER_VISION_MODEL", DEFAULT_VISION_MODEL)
+
+# Backward-compatible names used by older tests and scripts.
+OLLAMA_URL = OPENAI_BASE_URL
+OLLAMA_MODEL = TEXT_MODEL
 
 SAP_URL = os.getenv(
     "SAP_URL",
@@ -35,6 +70,7 @@ EXCHANGE_EMAIL = os.getenv("EXCHANGE_EMAIL", "")
 EXCHANGE_USERNAME = os.getenv("EXCHANGE_USERNAME", "")
 EXCHANGE_PASSWORD = os.getenv("EXCHANGE_PASSWORD", "")
 EXCHANGE_INCOMING_DIR = os.getenv("EXCHANGE_INCOMING_DIR", "/mnt/smb/po_pdfs/incoming")
+PROFILES_DIR = Path(os.getenv("PO_PARSER_PROFILES_DIR", PO_PARSER_DIR / "profiles"))
 
 
 class POHeader(BaseModel):
@@ -180,7 +216,7 @@ def normalize_whitespace(value: str) -> str:
 
 
 def collapse_for_matching(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "", value.lower())
+    return re.sub(r"[^\w]+", "", value.lower())
 
 
 def parse_eu_number(value: str) -> float:
@@ -194,6 +230,10 @@ def parse_evytra_date(value: str) -> str:
 
 
 def detect_customer_profile(text_content: str) -> Optional[str]:
+    published_profile = detect_published_profile(text_content)
+    if published_profile:
+        return published_profile
+
     collapsed = collapse_for_matching(text_content)
     markers = [
         "evytragmbh",
@@ -204,6 +244,59 @@ def detect_customer_profile(text_content: str) -> Optional[str]:
         r"\bOrder\s+\d+\b", text_content
     ):
         return "evytra"
+    return None
+
+
+def load_production_profiles() -> list[tuple[str, dict]]:
+    if not PROFILES_DIR.exists():
+        return []
+
+    profiles = []
+    for profile_path in sorted(PROFILES_DIR.glob("*.json")):
+        try:
+            with open(profile_path, "r", encoding="utf-8") as handle:
+                profile = json.load(handle)
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        if profile.get("status") != "production":
+            continue
+        if not profile.get("markers"):
+            continue
+        profiles.append((profile_path.stem, profile))
+
+    return profiles
+
+
+def load_production_profile(customer_profile: Optional[str]) -> Optional[dict]:
+    if not customer_profile:
+        return None
+
+    profile_path = PROFILES_DIR / f"{customer_profile}.json"
+    if not profile_path.exists():
+        return None
+
+    try:
+        with open(profile_path, "r", encoding="utf-8") as handle:
+            profile = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    if profile.get("status") != "production":
+        return None
+    return profile
+
+
+def detect_published_profile(text_content: str) -> Optional[str]:
+    collapsed_text = collapse_for_matching(text_content)
+    for profile_key, profile in load_production_profiles():
+        markers = [
+            collapse_for_matching(str(marker))
+            for marker in profile.get("markers", [])
+            if str(marker).strip()
+        ]
+        if markers and all(marker in collapsed_text for marker in markers):
+            return profile_key
     return None
 
 
@@ -416,7 +509,27 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     return "\n".join(text_parts)
 
 
-def extract_fields_with_ollama(text_content: str) -> dict:
+def extract_fields_with_ollama(
+    text_content: str,
+    customer_profile: Optional[str] = None,
+    profile_config: Optional[dict] = None,
+) -> dict:
+    profile_requirement = ""
+    profile_hint = ""
+    if customer_profile and profile_config:
+        profile_requirement = (
+            f'6. Set customer_profile to "{customer_profile}" in the output JSON'
+        )
+        profile_hint = f"""
+
+Customer profile context:
+- profile_key: {customer_profile}
+- profile_name: {profile_config.get("profile_name", customer_profile)}
+- known_markers: {json.dumps(profile_config.get("markers", []), ensure_ascii=False)}
+
+Use the profile context to resolve customer-specific labels and layout conventions, but still extract values from the purchase order content.
+"""
+
     prompt = f"""You are a purchase order parsing assistant. Extract key fields from the following purchase order text and output in JSON format.
 
 Requirements:
@@ -438,7 +551,9 @@ Requirements:
 3. Output pure JSON format only, no markdown or extra text
 4. Provide confidence score (0-1)
 5. List any uncertain or missing fields in warnings array
+{profile_requirement}
 
+{profile_hint}
 Purchase Order content:
 {text_content[:8000]}
 
@@ -447,10 +562,10 @@ Output JSON directly:"""
     try:
         from openai import OpenAI
 
-        client = OpenAI(base_url=OLLAMA_URL, api_key="ollama")
+        client = OpenAI(base_url=OPENAI_BASE_URL, api_key=OPENAI_API_KEY)
 
         response = client.chat.completions.create(
-            model=OLLAMA_MODEL,
+            model=TEXT_MODEL,
             messages=[
                 {
                     "role": "system",
@@ -478,7 +593,13 @@ Output JSON directly:"""
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "ollama_url": OLLAMA_URL}
+    return {
+        "status": "healthy",
+        "openai_base_url": OPENAI_BASE_URL,
+        "text_model": TEXT_MODEL,
+        "vision_model": VISION_MODEL,
+        "ollama_url": OLLAMA_URL,
+    }
 
 
 @app.post("/parse", response_model=POResult)
@@ -502,7 +623,12 @@ async def parse_po(request: ParseRequest):
     if customer_profile == "evytra":
         fields = parse_evytra_text(text_content)
     else:
-        fields = extract_fields_with_ollama(text_content)
+        profile_config = load_production_profile(customer_profile)
+        fields = extract_fields_with_ollama(
+            text_content,
+            customer_profile=customer_profile,
+            profile_config=profile_config,
+        )
 
     file_hash = hashlib.md5(open(pdf_path, "rb").read()).hexdigest()
 
@@ -511,7 +637,7 @@ async def parse_po(request: ParseRequest):
 
     result = {
         "source_file": Path(pdf_path).name,
-        "customer_profile": fields.get("customer_profile"),
+        "customer_profile": fields.get("customer_profile") or customer_profile,
         "file_hash": file_hash,
         "process_time": start_time.isoformat(),
         "header": fields.get(

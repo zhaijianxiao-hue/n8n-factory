@@ -12,7 +12,7 @@
 | 组件 | 技术 | 说明 |
 |------|------|------|
 | PDF 解析 | OpenDataLoader PDF | #1 基准测试，表格准确率 93% |
-| 字段抽取 | Ollama + qwen2.5:7b | 本地 LLM，中文支持好 |
+| 字段抽取 | OpenAI-compatible LLM | 默认 `DeepSeek-V4-Pro`，视觉/多模态默认 `Qwen3.5-27B` |
 | SAP 集成 | RFC / 中间服务 | 待确认 |
 
 ## 工作流架构
@@ -62,8 +62,11 @@ po-parser/
 | `PO_INBOX_PATH` | 输入文件夹路径 | `/mnt/smb/po-inbox/incoming` |
 | `PO_DONE_PATH` | 成功归档路径 | `/mnt/smb/po-inbox/done` |
 | `PO_ERROR_PATH` | 失败归档路径 | `/mnt/smb/po-inbox/error` |
-| `OLLAMA_URL` | Ollama 服务地址 | `http://localhost:11434` |
-| `OLLAMA_MODEL` | 使用的模型 | `qwen2.5:7b` |
+| `PO_PARSER_OPENAI_BASE_URL` | OpenAI-compatible 服务地址 | `https://ai.example.com/v1` |
+| `PO_PARSER_OPENAI_API_KEY` | 模型服务 API Key | `change-this-api-key` |
+| `PO_PARSER_TEXT_MODEL` | 推理/复杂问题模型 | `DeepSeek-V4-Pro` |
+| `PO_PARSER_VISION_MODEL` | 视觉/多模态模型 | `Qwen3.5-27B` |
+| `OLLAMA_URL` / `OLLAMA_MODEL` | 旧脚本兼容变量 | 同上 |
 | `SAP_API_URL` | SAP 中间服务地址 | `http://sap-gateway:8080/api` |
 
 ## 输出 JSON Schema

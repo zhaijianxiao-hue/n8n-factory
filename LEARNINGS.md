@@ -347,6 +347,47 @@ SAP SOAP 时间字段检查：
 
 **影响范围**: 所有内部工作台、审批流、上线发布类 API。
 
+### 13. Profile Lab 上线不等于生产解析链路自动生效
+
+**问题**: Profile Lab 中客户状态显示“已上线”后，容易误以为正式 `/parse` 服务会自动使用该客户 Profile；实际上如果生产 service 没有读取 `profiles/*.json`，新客户 PDF 仍会走通用解析逻辑。
+
+**根因**: 发布动作只负责生成生产 Profile 产物，运行时解析服务还需要单独接入“加载已上线 Profile、按 marker 识别客户、把 Profile 上下文传给解析器”的链路。
+
+**解决**: `po_parser_service.py` 运行时读取 `profiles` 目录中 `status=production` 且带 `markers` 的 Profile；识别命中后把 `customer_profile` 和 Profile 配置传给通用 LLM 抽取，并在输出 JSON 中保留客户 Profile。
+
+**预防规则**:
+```
+Profile Lab 新客户上线闭环：
+1. ✅ publish 生成 profiles/<customer>.json
+2. ✅ Profile 必须包含稳定 markers，不能只靠 UI 状态
+3. ✅ /parse 服务必须读取生产 Profile 并完成客户识别
+4. ✅ 解析输出 customer_profile 应回填命中的客户
+5. ❌ 不要把“已上线状态”当成“生产解析已接线”
+```
+
+**影响范围**: PO Profile Lab 到正式 PO Parser 服务的所有客户上线流程。
+
+### 14. OpenAI-compatible 供应商不一定支持 Responses API
+
+**问题**: n8n 工作台中 OpenAI 协议 credential 使用自定义 Base URL 可以保存，`/models` 也能刷出模型，但普通 `OpenAI` 节点选择 `Text -> Message a Model` 时，测试对话报 `404 status code (no body)` 和 LangChain `MODEL_NOT_FOUND`。
+
+**根因**: n8n 2.12.2 的普通 `OpenAI` 节点 v2 `Text -> Message a Model` 会调用 `<base_url>/responses`。部分 OpenAI-compatible 供应商只实现 `/models` 和 `/chat/completions`，不实现 `/responses`，因此模型列表可用但真实对话 404。
+
+**解决**: 实测可用方案是使用 `Basic LLM Chain` 连接子节点 `OpenAI Chat Model`，在 `OpenAI Chat Model` 中关闭 `Use Responses API`，继续使用 `https://ai.docker.tcl.com/imaas/v1` 这类带 `/v1` 的 OpenAI-compatible Base URL，并选择 `/models` 返回的精确模型 ID。
+
+**预防规则**:
+```
+OpenAI-compatible 供应商接入 n8n AI Chat Model：
+1. ✅ 先分别验证 /models、/chat/completions、/responses 三个端点
+2. ✅ 如果 /responses 返回 404，避免用普通 OpenAI 节点的 Text -> Message a Model
+3. ✅ 推荐 Basic LLM Chain / AI Agent + OpenAI Chat Model，并在 OpenAI Chat Model 关闭 Use Responses API
+4. ✅ 模型名使用 /models 返回的精确 id，注意大小写和符号
+5. ⚠️ Ollama 原生节点的 Base URL 不带 /v1；OpenAI-compatible 节点通常需要带 /v1
+6. ❌ 不要把“Credential 保存成功 / models 能加载”当成“chat 接口可用”
+```
+
+**影响范围**: 所有在 n8n 中通过 `OpenAI Chat Model` 节点接入第三方 OpenAI-compatible 网关、公司模型网关或 LiteLLM/vLLM 类服务的场景。
+
 ## 待登记模板
 
 发现新踩坑时，按以下格式添加：

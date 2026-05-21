@@ -1,9 +1,11 @@
 import argparse
+import os
 from pathlib import Path
 from typing import Sequence
 
 from .adjudicator import adjudicate_sample
 from .customer_assets import create_run, init_customer
+from .env_loader import load_profile_lab_env
 from .evaluator import evaluate_po_result
 from .json_io import read_json, write_json
 from .llm_client import create_json_client
@@ -16,6 +18,22 @@ from .text_candidate import (
     generate_text_candidate_with_model,
 )
 from .vision_candidate import generate_vision_candidate, generate_vision_candidate_with_model
+
+
+TEXT_MODEL_ENV = "PO_PROFILE_LAB_TEXT_MODEL"
+VISION_MODEL_ENV = "PO_PROFILE_LAB_VISION_MODEL"
+DEFAULT_TEXT_MODEL = "DeepSeek-V4-Pro"
+DEFAULT_VISION_MODEL = "Qwen3.5-27B"
+
+
+def default_text_model() -> str:
+    load_profile_lab_env()
+    return os.environ.get(TEXT_MODEL_ENV, DEFAULT_TEXT_MODEL)
+
+
+def default_vision_model() -> str:
+    load_profile_lab_env()
+    return os.environ.get(VISION_MODEL_ENV, DEFAULT_VISION_MODEL)
 
 
 def build_parser() -> argparse.ArgumentParser:

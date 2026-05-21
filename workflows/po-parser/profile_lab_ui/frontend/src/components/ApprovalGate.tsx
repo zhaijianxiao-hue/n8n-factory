@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { api } from "../api";
 import { adminDecisionLabel, approvalStateLabel } from "../labels";
-import type { ApprovalRecord } from "../types";
+import type { ApprovalRecord, ProfileStatus } from "../types";
 
 interface ApprovalGateProps {
   customer: string;
@@ -13,6 +13,7 @@ interface ApprovalGateProps {
   adminToken: string;
   sampleKey: string;
   requiresExpectedConfirmation: boolean;
+  profileStatus: ProfileStatus | null;
   onReload: () => Promise<void>;
 }
 
@@ -26,6 +27,7 @@ export function ApprovalGate({
   adminToken,
   sampleKey,
   requiresExpectedConfirmation,
+  profileStatus,
   onReload
 }: ApprovalGateProps) {
   const [busyAction, setBusyAction] = useState<ActionName | null>(null);
@@ -57,7 +59,8 @@ export function ApprovalGate({
   const isAdminMode = mode === "admin";
   const hasAdminToken = adminToken.trim().length > 0;
   const adminActionDisabled = !isAdminMode || !hasAdminToken || busyAction !== null;
-  const publishDisabled = adminActionDisabled || approval?.state !== "approved";
+  const hasMarkers = (profileStatus?.markers.length ?? 0) > 0;
+  const publishDisabled = adminActionDisabled || approval?.state !== "approved" || !hasMarkers;
   const actionDisabled = busyAction !== null;
   const submitDisabled = isAdminMode || actionDisabled || requiresExpectedConfirmation;
   const confirmDisabled = isAdminMode || actionDisabled || !sampleKey;
@@ -96,7 +99,13 @@ export function ApprovalGate({
           <X size={16} />
           <span>{busyAction === "reject" ? "驳回中" : "驳回"}</span>
         </button>
-        <button type="button" className="publish-button" onClick={() => runAction("publish")} disabled={publishDisabled} title="上线自动化使用">
+        <button
+          type="button"
+          className="publish-button"
+          onClick={() => runAction("publish")}
+          disabled={publishDisabled}
+          title={hasMarkers ? "上线自动化使用" : "请先在上线资源中维护识别标识"}
+        >
           <Rocket size={16} />
           <span>{busyAction === "publish" ? "上线中" : "上线"}</span>
         </button>
@@ -108,7 +117,9 @@ export function ApprovalGate({
           {requiresExpectedConfirmation
             ? "提交前需先确认标准答案"
             : isAdminMode && hasAdminToken
-              ? "管理员令牌已输入"
+              ? hasMarkers
+                ? "管理员令牌已输入"
+                : "上线前需维护识别标识"
               : "业务提交模式"}
         </span>
         <span>{adminDecisionLabel(approval?.admin_decision)}</span>

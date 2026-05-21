@@ -34,6 +34,18 @@ class ApprovalRequest(BaseModel):
     note: str = Field(default="")
 
 
+class CustomerCreateRequest(BaseModel):
+    customer: str = Field(min_length=1)
+    display_name: str = Field(default="")
+
+
+class DraftRunRequest(BaseModel):
+    run_id: str = Field(min_length=1)
+    text_model: Optional[str] = Field(default=None)
+    vision_model: Optional[str] = Field(default=None)
+    skip_render: bool = Field(default=False)
+
+
 class AdminDecisionRequest(BaseModel):
     actor: str = Field(default="admin", min_length=1)
     note: str = Field(default="")
@@ -48,3 +60,7 @@ class FieldCorrection(BaseModel):
 class CorrectionRequest(BaseModel):
     actor: str = Field(default="business", min_length=1)
     corrections: list[FieldCorrection] = Field(default_factory=list)
+
+
+class ProfileMarkersRequest(BaseModel):
+    markers: list[str] = Field(default_factory=list)

@@ -92,6 +92,14 @@ def validate_admin_approval(customer_dir: Path, run_id: str) -> None:
     )
 
 
+def validate_profile_markers(profile: dict) -> None:
+    markers = profile.get("markers")
+    require_publish_gate(
+        isinstance(markers, list) and any(str(marker).strip() for marker in markers),
+        "profile.markers must include at least one customer detection marker",
+    )
+
+
 def publish_profile(root: Path, customer_key: str, run_id: str, production_dir: Path) -> Path:
     customer_dir = root / "customers" / customer_key
     summary_path = customer_dir / "runs" / run_id / "evaluation" / "summary.json"
@@ -105,6 +113,7 @@ def publish_profile(root: Path, customer_key: str, run_id: str, production_dir: 
         ) from error
 
     profile = read_json(customer_dir / "profile.json")
+    validate_profile_markers(profile)
     profile["status"] = "production"
     profile["last_run_id"] = run_id
     profile["last_score"] = summary

@@ -18,7 +18,9 @@ Global options must be placed before the subcommand. For example, use
 `python -m profile_lab draft --lab-root ./profile-lab ...`.
 
 The `draft` command supports `--text-model` and `--vision-model` for
-OpenAI-compatible model-backed candidate generation.
+OpenAI-compatible model-backed candidate generation. The Web UI/API defaults
+to `DeepSeek-V4-Pro` for text/reasoning and `Qwen3.5-27B` for
+vision/multimodal when the request does not specify models.
 
 Environment variables:
 - `PO_PROFILE_LAB_PROVIDER` selects the model client. Use `ollama` for the
@@ -28,6 +30,8 @@ Environment variables:
   the final JSON without reasoning content when using the native Ollama API.
 - `PO_PROFILE_LAB_OPENAI_API_KEY` is required when using model-backed candidates.
 - `PO_PROFILE_LAB_OPENAI_BASE_URL` is optional for OpenAI-compatible endpoints.
+- `PO_PROFILE_LAB_TEXT_MODEL` defaults to `DeepSeek-V4-Pro`.
+- `PO_PROFILE_LAB_VISION_MODEL` defaults to `Qwen3.5-27B`.
 - `PO_PROFILE_LAB_OPENAI_MAX_TOKENS` controls model output budget. It defaults
   to `16384` because reasoning models can spend thousands of tokens before
   emitting final JSON.

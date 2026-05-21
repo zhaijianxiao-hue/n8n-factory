@@ -23,6 +23,21 @@ export interface CustomerSummary {
   customer_key: string;
   display_name: string;
   run_count: number;
+  sample_count: number;
+}
+
+export interface ProfileStatus {
+  customer: string;
+  profile_name: string;
+  markers: string[];
+  lab_status: string;
+  production_status: string | null;
+  runtime_ready: boolean;
+  lab_profile_path: string;
+  production_profile_path: string;
+  production_exists: boolean;
+  published_at: string | null;
+  last_run_id: string | null;
 }
 
 export interface FieldIssue {
@@ -81,6 +96,7 @@ export interface RunSample {
   sample_key: string;
   source_file: string;
   pdf_url?: string;
+  page_image_url?: string;
   text_candidate: Record<string, unknown>;
   vision_candidate: Record<string, unknown>;
   merged_draft: Record<string, unknown>;

@@ -1,0 +1,44 @@
+{
+  "profile_name": "bjwanji",
+  "version": "0.1.0",
+  "status": "production",
+  "markers": [
+    "北京万集",
+    "bjwanji",
+    "北京万集科技股份有限公司"
+  ],
+  "number_format": {
+    "decimal_separator": ".",
+    "thousands_separator": ","
+  },
+  "item_rules": {},
+  "last_run_id": "2026-05-20-1644",
+  "last_score": {
+    "customer": "bjwanji",
+    "run_id": "2026-05-20-1644",
+    "sample_count": 1,
+    "publishable": true,
+    "reports": [
+      {
+        "overall_score": 1.0,
+        "publishable": true,
+        "schema_pass": true,
+        "p0_pass": true,
+        "item_row_count_match": true,
+        "scores": {
+          "header": 1.0,
+          "items": 1.0,
+          "p1": 1.0,
+          "business_rules": 1.0
+        },
+        "blocking_errors": [],
+        "quality_errors": [],
+        "recommendation": "publishable",
+        "sample_key": "北京万集系统下载订单",
+        "report_path": "北京万集系统下载订单.report.json",
+        "expected_missing": false
+      }
+    ]
+  },
+  "published_at": "2026-05-20T17:03:02+08:00"
+}

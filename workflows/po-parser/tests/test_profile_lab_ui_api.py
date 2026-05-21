@@ -46,6 +46,17 @@ def create_run(root: Path) -> Path:
     return run_dir
 
 
+def create_profile(root: Path, markers: list[str] | None = None) -> None:
+    write_json(
+        root / "customers" / "evytra" / "profile.json",
+        {
+            "profile_name": "evytra",
+            "version": "0.1.0",
+            "markers": markers or [],
+        },
+    )
+
+
 def admin_headers(token: str = "secret-admin-token") -> dict:
     return {ADMIN_TOKEN_HEADER: token}
 
@@ -61,9 +72,77 @@ def test_list_customers_and_runs(tmp_path):
     customers = client.get("/api/customers").json()
     runs = client.get("/api/customers/evytra/runs").json()
 
-    assert customers == [{"customer_key": "evytra", "display_name": "EVYTRA GmbH", "run_count": 2}]
+    assert customers == [{"customer_key": "evytra", "display_name": "EVYTRA GmbH", "run_count": 2, "sample_count": 0}]
     assert [run["run_id"] for run in runs] == ["run-2", "run-1"]
     assert runs[1]["approval"]["state"] == "submitted"
+
+
+def test_create_customer_and_upload_sample_pdf(tmp_path):
+    lab_root = tmp_path / "profile-lab"
+    client = TestClient(create_app(lab_root=lab_root))
+
+    created = client.post("/api/customers", json={"customer": "acme", "display_name": "ACME Corp"})
+    uploaded = client.put(
+        "/api/customers/acme/samples/order-1.pdf",
+        content=b"%PDF-1.4\nsample",
+        headers={"content-type": "application/pdf"},
+    )
+
+    assert created.status_code == 200
+    assert created.json()["customer_key"] == "acme"
+    assert created.json()["sample_count"] == 0
+    assert uploaded.status_code == 200
+    assert uploaded.json()["filename"] == "order-1.pdf"
+    assert (lab_root / "customers" / "acme" / "samples" / "order-1.pdf").read_bytes().startswith(b"%PDF")
+
+    samples = client.get("/api/customers/acme/samples")
+    customers = client.get("/api/customers").json()
+    assert samples.status_code == 200
+    assert samples.json()[0]["filename"] == "order-1.pdf"
+    assert customers[0]["sample_count"] == 1
+
+
+def test_create_draft_run_from_ui_invokes_draft_and_evaluate(tmp_path, monkeypatch):
+    lab_root = tmp_path / "profile-lab"
+    create_run(lab_root)
+    calls = {}
+
+    def fake_run_draft(lab_root, customer_key, run_id, skip_render, text_model=None, vision_model=None):
+        calls["draft"] = {
+            "customer_key": customer_key,
+            "run_id": run_id,
+            "skip_render": skip_render,
+            "text_model": text_model,
+            "vision_model": vision_model,
+        }
+        new_run = lab_root / "customers" / customer_key / "runs" / run_id
+        write_json(new_run / "manifest.json", {"run_id": run_id, "customer": customer_key, "samples": ["sample.pdf"], "created_at": "2026-05-20T12:00:00+08:00"})
+        write_json(new_run / "candidates" / "text" / "sample.json", {"header": {}, "items": []})
+        write_json(new_run / "candidates" / "vision" / "sample.json", {"header": {}, "items": []})
+        write_json(new_run / "adjudication" / "sample.merged_draft.json", {"header": {}, "items": []})
+        return new_run
+
+    def fake_run_evaluate(lab_root, customer_key, run_id):
+        calls["evaluate"] = {"customer_key": customer_key, "run_id": run_id}
+        evaluation_dir = lab_root / "customers" / customer_key / "runs" / run_id / "evaluation"
+        write_json(evaluation_dir / "summary.json", {"publishable": False, "sample_count": 1, "reports": [{"sample_key": "sample", "publishable": False}]})
+        write_json(evaluation_dir / "sample.report.json", {"sample_key": "sample", "publishable": False})
+        return evaluation_dir
+
+    monkeypatch.setattr("profile_lab_ui.api.run_draft", fake_run_draft)
+    monkeypatch.setattr("profile_lab_ui.api.run_evaluate", fake_run_evaluate)
+    client = TestClient(create_app(lab_root=lab_root))
+
+    response = client.post(
+        "/api/customers/evytra/runs",
+        json={"run_id": "ui-run-1", "text_model": "qwen3.5:27b", "vision_model": "qwen3.5:27b"},
+    )
+
+    assert response.status_code == 200
+    assert calls["draft"]["customer_key"] == "evytra"
+    assert calls["draft"]["text_model"] == "qwen3.5:27b"
+    assert calls["evaluate"]["run_id"] == "ui-run-1"
+    assert response.json()["manifest"]["run_id"] == "ui-run-1"
 
 
 def test_get_run_returns_artifacts(tmp_path):
@@ -167,7 +246,7 @@ def test_publish_requires_admin_approval(tmp_path, monkeypatch):
     monkeypatch.setenv(ADMIN_TOKEN_ENV, "secret-admin-token")
     lab_root = tmp_path / "profile-lab"
     create_run(lab_root)
-    write_json(lab_root / "customers" / "evytra" / "profile.json", {"profile_name": "evytra", "version": "0.1.0"})
+    create_profile(lab_root, markers=["EVYTRA GmbH"])
     client = TestClient(create_app(lab_root=lab_root, production_dir=tmp_path / "profiles"))
 
     blocked = client.post("/api/customers/evytra/runs/run-1/publish", headers=admin_headers())
@@ -179,6 +258,72 @@ def test_publish_requires_admin_approval(tmp_path, monkeypatch):
     assert published.status_code == 200
     assert published.json()["state"] == "published"
     assert (tmp_path / "profiles" / "evytra.json").exists()
+
+
+def test_profile_endpoint_returns_lab_and_production_status(tmp_path):
+    lab_root = tmp_path / "profile-lab"
+    create_run(lab_root)
+    create_profile(lab_root, markers=["EVYTRA GmbH"])
+    production_dir = tmp_path / "profiles"
+    write_json(
+        production_dir / "evytra.json",
+        {
+            "profile_name": "evytra",
+            "status": "production",
+            "markers": ["EVYTRA GmbH"],
+            "published_at": "2026-05-20T12:00:00+08:00",
+        },
+    )
+    client = TestClient(create_app(lab_root=lab_root, production_dir=production_dir))
+
+    response = client.get("/api/customers/evytra/profile")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["customer"] == "evytra"
+    assert payload["markers"] == ["EVYTRA GmbH"]
+    assert payload["lab_status"] == "draft"
+    assert payload["production_status"] == "production"
+    assert payload["runtime_ready"] is True
+    assert payload["production_exists"] is True
+
+
+def test_update_profile_markers_requires_admin_token_and_syncs_production(tmp_path, monkeypatch):
+    monkeypatch.setenv(ADMIN_TOKEN_ENV, "secret-admin-token")
+    lab_root = tmp_path / "profile-lab"
+    create_run(lab_root)
+    create_profile(lab_root)
+    production_dir = tmp_path / "profiles"
+    write_json(production_dir / "evytra.json", {"profile_name": "evytra", "status": "production", "markers": []})
+    client = TestClient(create_app(lab_root=lab_root, production_dir=production_dir))
+
+    missing = client.put("/api/customers/evytra/profile/markers", json={"markers": ["EVYTRA GmbH"]})
+    updated = client.put(
+        "/api/customers/evytra/profile/markers",
+        headers=admin_headers(),
+        json={"markers": ["EVYTRA GmbH", "EVYTRA GmbH", "  "]},
+    )
+
+    assert missing.status_code == 403
+    assert updated.status_code == 200
+    assert updated.json()["markers"] == ["EVYTRA GmbH"]
+    assert json.loads((lab_root / "customers" / "evytra" / "profile.json").read_text(encoding="utf-8"))["markers"] == ["EVYTRA GmbH"]
+    assert json.loads((production_dir / "evytra.json").read_text(encoding="utf-8"))["markers"] == ["EVYTRA GmbH"]
+
+
+def test_publish_requires_profile_markers(tmp_path, monkeypatch):
+    monkeypatch.setenv(ADMIN_TOKEN_ENV, "secret-admin-token")
+    lab_root = tmp_path / "profile-lab"
+    create_run(lab_root)
+    create_profile(lab_root)
+    client = TestClient(create_app(lab_root=lab_root, production_dir=tmp_path / "profiles"))
+    client.post("/api/customers/evytra/runs/run-1/submit", json={"actor": "business", "note": "ready"})
+    client.post("/api/customers/evytra/runs/run-1/approve", headers=admin_headers(), json={"actor": "admin", "note": "ok"})
+
+    response = client.post("/api/customers/evytra/runs/run-1/publish", headers=admin_headers())
+
+    assert response.status_code == 409
+    assert "profile.markers" in response.json()["detail"]
 
 
 def test_confirm_expected_saves_merged_draft_and_reruns_evaluation(tmp_path):
@@ -271,6 +416,55 @@ def test_sample_pdf_endpoint_serves_input_pdf(tmp_path):
     assert response.headers["content-type"] == "application/pdf"
     assert response.headers["content-disposition"].startswith("inline;")
     assert response.content.startswith(b"%PDF-1.4")
+
+
+def test_sample_pdf_endpoint_uses_manifest_source_filename(tmp_path):
+    lab_root = tmp_path / "profile-lab"
+    run_dir = create_run(lab_root)
+    write_json(run_dir / "manifest.json", {"run_id": "run-1", "customer": "evytra", "samples": ["复杂 文件.pdf"], "created_at": "2026-05-14T18:30:00+08:00"})
+    (run_dir / "inputs").mkdir(parents=True, exist_ok=True)
+    (run_dir / "inputs" / "复杂 文件.pdf").write_bytes(b"%PDF-1.4\ncomplex")
+    client = TestClient(create_app(lab_root=lab_root))
+
+    response = client.get("/api/customers/evytra/runs/run-1/samples/复杂 文件/pdf")
+
+    assert response.status_code == 200
+    assert response.content.startswith(b"%PDF-1.4")
+
+
+def test_sample_page_image_endpoint_renders_png(tmp_path):
+    fitz = pytest.importorskip("fitz")
+    lab_root = tmp_path / "profile-lab"
+    run_dir = create_run(lab_root)
+    (run_dir / "inputs").mkdir(parents=True, exist_ok=True)
+    pdf_path = run_dir / "inputs" / "sample.pdf"
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "PO sample")
+    document.save(pdf_path)
+    document.close()
+    client = TestClient(create_app(lab_root=lab_root))
+
+    response = client.get("/api/customers/evytra/runs/run-1/samples/sample/page-image")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content.startswith(b"\x89PNG")
+
+
+def test_delete_run_requires_admin_token_and_removes_directory(tmp_path, monkeypatch):
+    monkeypatch.setenv(ADMIN_TOKEN_ENV, "secret-admin-token")
+    lab_root = tmp_path / "profile-lab"
+    run_dir = create_run(lab_root)
+    client = TestClient(create_app(lab_root=lab_root))
+
+    missing = client.delete("/api/customers/evytra/runs/run-1")
+    deleted = client.delete("/api/customers/evytra/runs/run-1", headers=admin_headers())
+
+    assert missing.status_code == 403
+    assert deleted.status_code == 200
+    assert deleted.json()["deleted"] is True
+    assert not run_dir.exists()
 
 
 def test_submit_without_webhook_records_skipped_notification(tmp_path, monkeypatch):

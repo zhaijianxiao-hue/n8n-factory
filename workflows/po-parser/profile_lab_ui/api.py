@@ -1,6 +1,7 @@
 import hmac
 import os
 import re
+import shutil
 from pathlib import Path
 from typing import Any
 from typing import Optional
@@ -8,9 +9,14 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi import Header
 from fastapi import HTTPException
+from fastapi import Request
 from fastapi.responses import FileResponse
 
 from profile_lab.commands import run_evaluate
+from profile_lab.commands import run_draft
+from profile_lab.commands import default_text_model
+from profile_lab.commands import default_vision_model
+from profile_lab.customer_assets import init_customer
 from profile_lab.env_loader import load_profile_lab_env
 from profile_lab.json_io import write_json
 from profile_lab.paths import DEFAULT_LAB_ROOT
@@ -35,6 +41,9 @@ from .artifacts import run_dir
 from .models import AdminDecisionRequest
 from .models import ApprovalRequest
 from .models import CorrectionRequest
+from .models import CustomerCreateRequest
+from .models import DraftRunRequest
+from .models import ProfileMarkersRequest
 from .notifications import build_approval_payload
 from .notifications import send_approval_notification
 from .static import mount_frontend
@@ -43,6 +52,7 @@ from .static import mount_frontend
 ADMIN_TOKEN_ENV = "PO_PROFILE_LAB_ADMIN_TOKEN"
 ADMIN_TOKEN_HEADER = "X-PO-Profile-Lab-Admin-Token"
 FIELD_PART_PATTERN = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d+)])?$")
+SAFE_PDF_FILENAME_PATTERN = re.compile(r"^[^/\\]+\.pdf$", re.IGNORECASE)
 
 
 def require_admin_token(token: Optional[str]) -> None:
@@ -126,6 +136,64 @@ def set_nested_value(payload: dict, field: str, value: Any) -> None:
         raise ValueError(f"cannot set nested field: {field}")
 
 
+def normalize_markers(markers: list[str]) -> list[str]:
+    normalized = []
+    seen = set()
+    for marker in markers:
+        value = str(marker).strip()
+        if not value or value in seen:
+            continue
+        normalized.append(value)
+        seen.add(value)
+    return normalized
+
+
+def validate_pdf_filename(filename: str) -> str:
+    value = Path(filename).name.strip()
+    if not SAFE_PDF_FILENAME_PATTERN.match(value):
+        raise ValueError("sample filename must be a PDF file name")
+    return value
+
+
+def resolve_run_sample_pdf(current_run_dir: Path, sample_key: str) -> Path:
+    manifest = read_json(current_run_dir / "manifest.json", default={})
+    input_dir = current_run_dir / "inputs"
+    for sample in manifest.get("samples", []):
+        sample_name = Path(sample).name
+        if Path(sample_name).stem == sample_key:
+            return input_dir / sample_name
+    return input_dir / f"{sample_key}.pdf"
+
+
+def load_profile_status(lab_root: Path, production_dir: Path, customer: str) -> dict[str, Any]:
+    lab_profile_path = lab_root / "customers" / customer / "profile.json"
+    if not lab_profile_path.exists():
+        raise ArtifactNotFoundError(str(lab_profile_path))
+
+    lab_profile = read_json(lab_profile_path)
+    production_profile_path = production_dir / f"{customer}.json"
+    production_profile = read_json(production_profile_path, default={})
+    markers = normalize_markers(
+        production_profile.get("markers") or lab_profile.get("markers") or []
+    )
+    production_status = production_profile.get("status")
+    runtime_ready = production_profile_path.exists() and production_status == "production" and bool(markers)
+
+    return {
+        "customer": customer,
+        "profile_name": lab_profile.get("profile_name", customer),
+        "markers": markers,
+        "lab_status": lab_profile.get("status", "draft"),
+        "production_status": production_status,
+        "runtime_ready": runtime_ready,
+        "lab_profile_path": str(lab_profile_path),
+        "production_profile_path": str(production_profile_path),
+        "production_exists": production_profile_path.exists(),
+        "published_at": production_profile.get("published_at") or lab_profile.get("published_at"),
+        "last_run_id": production_profile.get("last_run_id") or lab_profile.get("last_run_id"),
+    }
+
+
 def create_app(
     lab_root: Path = DEFAULT_LAB_ROOT,
     production_dir: Path = PRODUCTION_PROFILE_DIR,
@@ -139,9 +207,62 @@ def create_app(
     def list_customers():
         return list_customer_artifacts(lab_root)
 
+    @app.post("/api/customers")
+    def create_customer(request: CustomerCreateRequest):
+        customer_key = request.customer.strip()
+        display_name = request.display_name.strip() or customer_key
+        try:
+            init_customer(
+                root=lab_root,
+                customer_key=customer_key,
+                display_name=display_name,
+            )
+            return {
+                "customer_key": customer_key,
+                "display_name": display_name,
+                "run_count": len(list_run_artifacts(lab_root, customer_key)),
+                "sample_count": 0,
+            }
+        except (OSError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @app.get("/api/customers/{customer}/runs")
     def list_runs(customer: str):
         return list_run_artifacts(lab_root, customer)
+
+    @app.get("/api/customers/{customer}/samples")
+    def list_samples(customer: str):
+        samples_dir = lab_root / "customers" / customer / "samples"
+        if not samples_dir.exists():
+            return []
+        return [
+            {
+                "filename": sample_path.name,
+                "size": sample_path.stat().st_size,
+            }
+            for sample_path in sorted(samples_dir.iterdir())
+            if sample_path.is_file() and sample_path.suffix.lower() == ".pdf"
+        ]
+
+    @app.post("/api/customers/{customer}/runs")
+    def create_draft_run(customer: str, request: DraftRunRequest):
+        try:
+            run_draft(
+                lab_root=lab_root,
+                customer_key=customer,
+                run_id=request.run_id.strip(),
+                skip_render=request.skip_render,
+                text_model=request.text_model or default_text_model(),
+                vision_model=request.vision_model or default_vision_model(),
+            )
+            run_evaluate(lab_root=lab_root, customer_key=customer, run_id=request.run_id.strip())
+            return load_run(lab_root, customer, request.run_id.strip())
+        except FileExistsError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except (ArtifactNotFoundError, FileNotFoundError) as exc:
+            raise HTTPException(status_code=404, detail="customer or sample not found") from exc
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/customers/{customer}/runs/{run_id}")
     def get_run(customer: str, run_id: str):
@@ -228,7 +349,7 @@ def create_app(
             current_run_dir = run_dir(lab_root, customer, run_id)
         except ArtifactNotFoundError as exc:
             raise HTTPException(status_code=404, detail="run not found") from exc
-        pdf_path = current_run_dir / "inputs" / f"{sample_key}.pdf"
+        pdf_path = resolve_run_sample_pdf(current_run_dir, sample_key)
         if not pdf_path.exists():
             raise HTTPException(status_code=404, detail="pdf not found")
         return FileResponse(
@@ -237,6 +358,95 @@ def create_app(
             filename=pdf_path.name,
             content_disposition_type="inline",
         )
+
+    @app.get("/api/customers/{customer}/runs/{run_id}/samples/{sample_key}/page-image")
+    def get_sample_page_image(customer: str, run_id: str, sample_key: str):
+        try:
+            current_run_dir = run_dir(lab_root, customer, run_id)
+        except ArtifactNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="run not found") from exc
+        pdf_path = resolve_run_sample_pdf(current_run_dir, sample_key)
+        if not pdf_path.exists():
+            raise HTTPException(status_code=404, detail="pdf not found")
+
+        image_path = current_run_dir / "pages" / f"{sample_key}.page-1.png"
+        if not image_path.exists():
+            try:
+                import fitz
+
+                image_path.parent.mkdir(parents=True, exist_ok=True)
+                document = fitz.open(pdf_path)
+                if document.page_count < 1:
+                    raise ValueError("pdf has no pages")
+                page = document.load_page(0)
+                pixmap = page.get_pixmap(matrix=fitz.Matrix(1.6, 1.6), alpha=False)
+                pixmap.save(image_path)
+                document.close()
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=f"failed to render pdf page: {exc}") from exc
+
+        return FileResponse(image_path, media_type="image/png", filename=image_path.name)
+
+    @app.put("/api/customers/{customer}/samples/{filename}")
+    async def upload_sample_pdf(customer: str, filename: str, request: Request):
+        try:
+            safe_filename = validate_pdf_filename(filename)
+            profile_path = lab_root / "customers" / customer / "profile.json"
+            if not profile_path.exists():
+                raise ArtifactNotFoundError(str(profile_path))
+            body = await request.body()
+            if not body:
+                raise ValueError("sample PDF is empty")
+            sample_path = lab_root / "customers" / customer / "samples" / safe_filename
+            sample_path.parent.mkdir(parents=True, exist_ok=True)
+            sample_path.write_bytes(body)
+            return {
+                "customer": customer,
+                "filename": safe_filename,
+                "size": len(body),
+            }
+        except ArtifactNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="customer not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/customers/{customer}/profile")
+    def get_profile(customer: str):
+        try:
+            return load_profile_status(lab_root, production_dir, customer)
+        except ArtifactNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="profile not found") from exc
+
+    @app.put("/api/customers/{customer}/profile/markers")
+    def update_profile_markers(
+        customer: str,
+        request: ProfileMarkersRequest,
+        admin_token: Optional[str] = Header(default=None, alias=ADMIN_TOKEN_HEADER),
+    ):
+        require_admin_token(admin_token)
+        try:
+            markers = normalize_markers(request.markers)
+            if not markers:
+                raise ValueError("at least one marker is required")
+
+            lab_profile_path = lab_root / "customers" / customer / "profile.json"
+            if not lab_profile_path.exists():
+                raise ArtifactNotFoundError(str(lab_profile_path))
+            lab_profile = read_json(lab_profile_path)
+            lab_profile["markers"] = markers
+            write_json(lab_profile_path, lab_profile)
+
+            production_profile_path = production_dir / f"{customer}.json"
+            if production_profile_path.exists():
+                production_profile = read_json(production_profile_path)
+                production_profile["markers"] = markers
+                write_json(production_profile_path, production_profile)
+
+            return load_profile_status(lab_root, production_dir, customer)
+        except ArtifactNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="profile not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/customers/{customer}/runs/{run_id}/approve")
     def approve(
@@ -253,6 +463,20 @@ def create_app(
             raise HTTPException(status_code=404, detail="run not found") from exc
         except ApprovalGateError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.delete("/api/customers/{customer}/runs/{run_id}")
+    def delete_run(
+        customer: str,
+        run_id: str,
+        admin_token: Optional[str] = Header(default=None, alias=ADMIN_TOKEN_HEADER),
+    ):
+        require_admin_token(admin_token)
+        try:
+            current_run_dir = run_dir(lab_root, customer, run_id)
+            shutil.rmtree(current_run_dir)
+            return {"customer": customer, "run_id": run_id, "deleted": True}
+        except ArtifactNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="run not found") from exc
 
     @app.post("/api/customers/{customer}/runs/{run_id}/reject")
     def reject(

@@ -42,6 +42,10 @@ def test_publish_profile_copies_profile_when_gate_passes(tmp_path):
     init_customer(root=root, customer_key="acme", display_name="ACME Corp")
     customer_dir = root / "customers" / "acme"
     write_json(
+        customer_dir / "profile.json",
+        {"profile_name": "acme", "version": "0.1.0", "markers": ["ACME Corp"]},
+    )
+    write_json(
         customer_dir / "runs" / "run-1" / "evaluation" / "summary.json",
         publishable_summary(),
     )
