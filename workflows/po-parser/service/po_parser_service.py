@@ -64,6 +64,16 @@ SAP_URL = os.getenv(
 )
 SAP_USER = os.getenv("SAP_USER", "")
 SAP_PASS = os.getenv("SAP_PASS", "")
+SAP_CA_BUNDLE = os.getenv("SAP_CA_BUNDLE", "")
+SAP_VERIFY_SSL = os.getenv("SAP_VERIFY_SSL", "true")
+SAP_PRD_URL = os.getenv(
+    "SAP_PRD_URL",
+    "https://10.142.1.30:44300/sap/bc/srt/rfc/sap/zws_general/800/zws_general/zbd_general",
+)
+SAP_PRD_USER = os.getenv("SAP_PRD_USER", "")
+SAP_PRD_PASS = os.getenv("SAP_PRD_PASS", "")
+SAP_PRD_CA_BUNDLE = os.getenv("SAP_PRD_CA_BUNDLE", "")
+SAP_PRD_VERIFY_SSL = os.getenv("SAP_PRD_VERIFY_SSL", "true")
 
 EXCHANGE_SERVER = os.getenv("EXCHANGE_SERVER", "mail.tcl.com")
 EXCHANGE_EMAIL = os.getenv("EXCHANGE_EMAIL", "")
@@ -364,12 +374,12 @@ def parse_evytra_text(text_content: str) -> dict:
     packaging_note = normalize_whitespace(packaging_match.group(0)) if packaging_match else None
 
     item_header_pattern = re.compile(
-        r"(?P<line_no>10|20|30|40)\s+"
-        r"(?P<material_description>\d+)\s+"
-        r"(?P<qty>[\d\.]+)\s+"
-        r"(?P<customer_material>\d+)\s+TA\s+"
-        r"(?P<unit>pcs)",
-        re.DOTALL,
+        r"^(?P<line_no>10|20|30|40)\s*\n"
+        r"(?P<material_description>\d+)\s*\n"
+        r"(?P<qty>[\d\.]+)\s*\n"
+        r"(?P<customer_material>.+?)\s+TA\s*\n"
+        r"(?P<unit>pcs)\b",
+        re.DOTALL | re.MULTILINE,
     )
 
     detail_pattern = re.compile(
@@ -433,7 +443,7 @@ def parse_evytra_text(text_content: str) -> dict:
             "line_no": int(match.group("line_no")),
             "qty": parse_eu_number(match.group("qty")),
             "unit": match.group("unit"),
-            "customer_material": match.group("customer_material"),
+            "customer_material": normalize_whitespace(match.group("customer_material")),
             "material_description": match.group("material_description"),
             "customer_release_no": detail_match.group("release_no"),
             "customer_release_pos": detail_match.group("release_pos"),
@@ -443,7 +453,7 @@ def parse_evytra_text(text_content: str) -> dict:
             "unit_price": unit_price_value,
             "amount": amount_value,
             "currency": "EUR",
-            "description_raw": f"{match.group('customer_material')} TA",
+            "description_raw": f"{normalize_whitespace(match.group('customer_material'))} TA",
             "article_raw": match.group("material_description"),
         }
         items.append(item)
@@ -966,25 +976,41 @@ def _parse_sap_response(soap_response_text: str) -> dict:
         }
 
 
-@app.post("/to-sap")
-async def send_to_sap(request: ToSapRequest):
-    """将解析结果转换并发送到 SAP"""
+def _resolve_ssl_verify(ca_bundle: str, verify_ssl: str):
+    if verify_ssl.strip().lower() in {"0", "false", "no", "off"}:
+        return False
+    if ca_bundle:
+        return ca_bundle
+    return True
 
-    if not SAP_USER or not SAP_PASS:
+
+def _send_to_sap_endpoint(
+    parse_result: dict,
+    *,
+    sap_url: str,
+    sap_user: str,
+    sap_pass: str,
+    sap_ca_bundle: str,
+    sap_verify_ssl: str,
+    credential_label: str,
+) -> dict:
+    if not sap_user or not sap_pass:
         raise HTTPException(
             status_code=500,
-            detail="SAP credentials not configured (SAP_USER / SAP_PASS env vars)",
+            detail=f"{credential_label} credentials not configured",
         )
 
-    sap_input = _build_sap_input(request.parse_result)
+    sap_input = _build_sap_input(parse_result)
     soap_xml = _build_soap_xml(sap_input)
+    verify_ssl = _resolve_ssl_verify(sap_ca_bundle, sap_verify_ssl)
 
     try:
         resp = requests.post(
-            SAP_URL,
+            sap_url,
             data=soap_xml.encode("utf-8"),
             headers={"Content-Type": "text/xml; charset=utf-8"},
-            auth=(SAP_USER, SAP_PASS),
+            auth=(sap_user, sap_pass),
+            verify=verify_ssl,
             timeout=60,
         )
         resp.raise_for_status()
@@ -1000,6 +1026,37 @@ async def send_to_sap(request: ToSapRequest):
         "guid": sap_input.get("GUID"),
         "bstnk": sap_input.get("BSTNK"),
     }
+
+
+@app.post("/to-sap")
+async def send_to_sap(request: ToSapRequest):
+    """将解析结果转换并发送到 SAP 测试系统"""
+
+    return _send_to_sap_endpoint(
+        request.parse_result,
+        sap_url=SAP_URL,
+        sap_user=SAP_USER,
+        sap_pass=SAP_PASS,
+        sap_ca_bundle=SAP_CA_BUNDLE,
+        sap_verify_ssl=SAP_VERIFY_SSL,
+        credential_label="SAP test",
+    )
+
+
+@app.post("/to_sap_prd")
+@app.post("/to-sap-prd")
+async def send_to_sap_prd(request: ToSapRequest):
+    """将解析结果转换并发送到 SAP 生产系统"""
+
+    return _send_to_sap_endpoint(
+        request.parse_result,
+        sap_url=SAP_PRD_URL,
+        sap_user=SAP_PRD_USER,
+        sap_pass=SAP_PRD_PASS,
+        sap_ca_bundle=SAP_PRD_CA_BUNDLE,
+        sap_verify_ssl=SAP_PRD_VERIFY_SSL,
+        credential_label="SAP production",
+    )
 
 
 if __name__ == "__main__":

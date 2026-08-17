@@ -13,7 +13,7 @@
 |------|------|------|
 | PDF 解析 | OpenDataLoader PDF | #1 基准测试，表格准确率 93% |
 | 字段抽取 | OpenAI-compatible LLM | 默认 `DeepSeek-V4-Pro`，视觉/多模态默认 `Qwen3.5-27B` |
-| SAP 集成 | RFC / 中间服务 | 待确认 |
+| SAP 集成 | SOAP RFC | `/to-sap` 走测试系统，`/to_sap_prd` 走生产系统 |
 
 ## 工作流架构
 
@@ -43,8 +43,11 @@ po-parser/
 ├── tests/
 │   └── samples/              # 测试 PDF 样本
 ├── workflow.json             # n8n 工作流定义
+├── KNOWLEDGE.md              # 产品专属知识与运行约束
 └── README.md
 ```
+
+产品运行模型、端点契约、Profile 生命周期和验证入口见 `KNOWLEDGE.md`。
 
 ## 当前扩展策略
 
@@ -67,7 +70,10 @@ po-parser/
 | `PO_PARSER_TEXT_MODEL` | 推理/复杂问题模型 | `DeepSeek-V4-Pro` |
 | `PO_PARSER_VISION_MODEL` | 视觉/多模态模型 | `Qwen3.5-27B` |
 | `OLLAMA_URL` / `OLLAMA_MODEL` | 旧脚本兼容变量 | 同上 |
-| `SAP_API_URL` | SAP 中间服务地址 | `http://sap-gateway:8080/api` |
+| `SAP_URL` / `SAP_USER` / `SAP_PASS` | SAP 测试系统地址和账号 | `https://sap-test.example.com/...` |
+| `SAP_PRD_URL` / `SAP_PRD_USER` / `SAP_PRD_PASS` | SAP 生产系统地址和账号 | `https://sap-prd.example.com/...` |
+| `SAP_CA_BUNDLE` / `SAP_PRD_CA_BUNDLE` | SAP HTTPS 自签证书或 CA bundle 路径 | `/opt/po-parser/certificate/sap-prd-selfsigned.crt` |
+| `SAP_VERIFY_SSL` / `SAP_PRD_VERIFY_SSL` | 是否校验 SAP HTTPS 证书 | `true` |
 
 ## 输出 JSON Schema
 

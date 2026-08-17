@@ -153,14 +153,15 @@ export function AdminReview({ customers, runs, adminToken, onAdminTokenChange, o
                       <button
                         type="button"
                         className="delete-run-button"
+                        title="只删除本次运行批次，不删除客户样本、标准答案或客户档案"
                         onClick={() => {
-                          if (window.confirm(`确认删除运行批次 ${run.run_id}？`)) {
+                          if (window.confirm(`确认删除运行批次 ${run.run_id}？\n\n只会删除本次生成记录，不会删除客户样本、标准答案或客户档案。`)) {
                             void onDeleteRun(run.customer, run.run_id);
                           }
                         }}
                       >
                         <Trash2 size={15} />
-                        <span>删除</span>
+                        <span>删除批次</span>
                       </button>
                     </div>
                   </article>

@@ -55,6 +55,65 @@ def test_evytra_profile_returns_expected_shape():
     assert result["items"][0]["delivery_date"] == "2026-05-01"
 
 
+def test_evytra_parse_accepts_alphanumeric_customer_material_description():
+    module = load_service_module()
+    text = """
+EVYTRA GmbH
+21.05.2026
+Your supplier ID:
+704000
+Jinah Park
+Our contact:
+jinah.park@evytra.com
+Fax no.:
++49 7720 3902 14
+Phone-no.:
+Date:
+Page:
+Page 1 of 1
+@@ELO|Bestellung|2261643|
+Order 2261643
+Item
+Quantity Description
+Article
+Price
+10
+715261
+282
+AN00R08236 / FUX3001 743873 ÄI013     TA
+pcs
+>>> Delivery + 10 / - 0 % <<<
+Order:
+30602483   Pos. 10.000
+Delivery date:
+19.06.2026
+price / unit:
+ EUR
+225,60
+for 100 pcs: 80,00 EUR
+Order amount
+ EUR
+225,60
+DAP Schwenningen
+Incoterms:
+90 days net
+Terms of payment:
+Airfreight
+Mode of shipment:
+"""
+
+    result = module.parse_evytra_text(text)
+
+    assert result["status"] == "success"
+    assert len(result["items"]) == 1
+    assert result["items"][0]["customer_material"] == "AN00R08236 / FUX3001 743873 ÄI013"
+    assert result["items"][0]["material_description"] == "715261"
+    assert result["items"][0]["qty"] == 282
+    assert result["items"][0]["amount"] == 225.6
+    assert result["items"][0]["unit_price"] == 80
+    assert result["items"][0]["price_basis_qty"] == 100
+
+
 def test_evytra_parse_matches_expected_fixture_core_fields():
     module = load_service_module()
     expected = load_expected_fixture()
