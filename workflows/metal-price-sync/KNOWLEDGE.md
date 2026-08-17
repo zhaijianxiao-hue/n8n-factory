@@ -9,9 +9,11 @@
 每日金属价格同步服务，抓取黄金和铜价格，标准化为统一 JSON 格式，通过 n8n 写入 SAP。
 
 **关键参数**:
-- 服务端口: `8766`
+- 服务端口: `8769`
 - 定时调度: `0 2 * * *`（每日凌晨 02:00）
 - n8n Workflow ID: `78HQP00Y94cBkV1m`
+- SAP 环境: 固定生产（`获取 SAP 配置` 节点直接输出生产 URL）
+- SAP 生产 URL: `http://10.142.1.31:8000/sap/bc/srt/rfc/sap/zws_general/800/zws_general/zbd_general`
 
 ---
 
@@ -21,7 +23,7 @@
 n8n 定时触发
     │
     ▼
-Python Service (8766)
+Python Service (8769)
     │
     ├─ /health         → 健康检查
     ├─ /prices/latest  → 抓取金铜价格
@@ -85,6 +87,8 @@ n8n 检查结果
 
 **Systemd Unit**: `metal-price-sync.service`
 
+**当前端口配置**: systemd drop-in `/etc/systemd/system/metal-price-sync.service.d/override.conf` 设置 `SERVICE_PORT=8769`，避免与 `hana-query-api.service` 的 `8766` 冲突。
+
 **关键命令**:
 ```bash
 # 检查服务状态
@@ -97,8 +101,8 @@ ssh n8n "journalctl -u metal-price-sync --no-pager -n 50"
 ssh n8n "sudo systemctl restart metal-price-sync"
 
 # 测试 API
-ssh n8n "curl -s http://localhost:8766/health"
-ssh n8n "curl -s http://localhost:8766/prices/latest"
+ssh n8n "curl -s http://localhost:8769/health"
+ssh n8n "curl -s http://localhost:8769/prices/latest"
 ```
 
 ---
@@ -108,10 +112,11 @@ ssh n8n "curl -s http://localhost:8766/prices/latest"
 | 节点 | 类型 | 作用 |
 |------|------|------|
 | 定时触发 | scheduleTrigger | cron: 0 2 * * * |
-| 获取金铜价格 | httpRequest | GET http://10.142.1.135:8766/prices/latest |
+| 获取金铜价格 | httpRequest | GET http://10.142.1.135:8769/prices/latest |
 | 检查抓取结果 | if | 校验 status == success |
 | 转换 SAP 请求体 | set | 映射字段到 SAP 格式 |
-| 写入 SAP | httpRequest | POST SAP endpoint（待配置） |
+| 获取 SAP 配置 | code | 输出固定 SAP 生产 URL 和凭证名 |
+| 写入 SAP | httpRequest | POST SAP 生产 endpoint，使用 `SAP Production System` Basic Auth |
 | 检查 SAP 返回 | if | 校验 statusCode == 200 |
 | 失败处理 | noOp | Placeholder，可扩展告警 |
 
@@ -143,3 +148,4 @@ workflows/metal-price-sync/
 | Date | Change |
 |------|--------|
 | 2026-04-16 | 初始化产品，完成服务部署和 n8n workflow 创建 |
+| 2026-06-09 | 生产端口迁移到 8769，避开 hana-query-api 的 8766 |

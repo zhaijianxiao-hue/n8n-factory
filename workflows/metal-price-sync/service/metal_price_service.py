@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 
 app = FastAPI(title="Metal Price Sync Service", version="0.1.0")
 
-SERVICE_PORT = int(os.getenv("SERVICE_PORT", "8766"))
+SERVICE_PORT = int(os.getenv("SERVICE_PORT", "8769"))
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "30"))
 USER_AGENT = os.getenv("USER_AGENT", "metal-price-sync/0.1.0")
 

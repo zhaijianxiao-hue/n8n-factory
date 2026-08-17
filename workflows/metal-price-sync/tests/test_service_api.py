@@ -17,7 +17,7 @@ def test_health_endpoint():
     data = response.json()
     assert data["status"] == "ok"
     assert data["service"] == "metal-price-sync"
-    assert data["port"] == 8766
+    assert data["port"] == 8769
 
 
 def test_prices_latest_endpoint_structure():

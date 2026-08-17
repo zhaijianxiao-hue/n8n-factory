@@ -10,64 +10,7 @@
     },
     {
       "parameters": {
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 1
-                },
-                "conditions": [
-                  {
-                    "leftValue": "={{ $json.system_type }}",
-                    "rightValue": "test",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "output": 0
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 1
-                },
-                "conditions": [
-                  {
-                    "leftValue": "={{ $json.system_type }}",
-                    "rightValue": "prod",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "output": 1
-            }
-          ]
-        },
-        "options": {}
-      },
-      "name": "选择系统",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
-      "position": [150, 300]
-    },
-    {
-      "parameters": {
-        "jsCode": "const systemType = $input.first().json.system_type || 'test';\nconst config = {\n  test: {\n    url: 'http://10.142.1.20:8000/sap/bc/srt/rfc/sap/zws_general/600/zws_general/zbd_general?sap-client=600',\n    credentialName: 'SAP Test System'\n  },\n  prod: {\n    url: 'PROD_URL_PLACEHOLDER',\n    credentialName: 'SAP Production System'\n  }\n};\nreturn [{ json: config[systemType] }];"
+        "jsCode": "return [{\n  json: {\n    url: 'http://10.142.1.31:8000/sap/bc/srt/rfc/sap/zws_general/800/zws_general/zbd_general',\n    credentialName: 'SAP Production System'\n  }\n}];"
       },
       "name": "获取 SAP 配置",
       "type": "n8n-nodes-base.code",
@@ -92,7 +35,7 @@
     },
     {
       "parameters": {
-        "url": "http://10.142.1.135:8766/prices/latest",
+        "url": "http://10.142.1.135:8769/prices/latest",
         "authentication": "none",
         "options": {
           "timeout": 60000
@@ -142,7 +85,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://10.142.1.135:8766/prices/soap-body",
+        "url": "http://10.142.1.135:8769/prices/soap-body",
         "authentication": "none",
         "sendBody": true,
         "specifyBody": "json",
@@ -161,10 +104,24 @@
         "method": "POST",
         "url": "={{ $('获取 SAP 配置').item.json.url }}",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "text/xml; charset=utf-8"
+            },
+            {
+              "name": "SOAPAction",
+              "value": "\"\""
+            }
+          ]
+        },
         "sendBody": true,
-        "specifyBody": "raw",
-        "rawBody": "={{ $json.soap_body }}",
+        "contentType": "raw",
+        "rawContentType": "text/xml",
+        "body": "={{ $json.soap_body }}",
         "options": {
           "timeout": 60000
         }
@@ -173,7 +130,13 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [1250, 200],
-      "notes": "SAP endpoint 和认证需要在部署时配置"
+      "notes": "SAP endpoint 和认证需要在部署时配置",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "XZJHwzxFyZX6kZYY",
+          "name": "SAP Production System"
+        }
+      }
     },
     {
       "parameters": {
@@ -223,24 +186,6 @@
   "connections": {
     "手动触发": {
       "main": [
-        [
-          {
-            "node": "选择系统",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "选择系统": {
-      "main": [
-        [
-          {
-            "node": "获取 SAP 配置",
-            "type": "main",
-            "index": 0
-          }
-        ],
         [
           {
             "node": "获取 SAP 配置",

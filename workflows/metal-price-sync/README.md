@@ -6,7 +6,7 @@
 
 **核心特性：**
 - 每日凌晨02:00自动运行
-- 独立FastAPI服务，端口8766
+- 独立FastAPI服务，端口8769
 - V1严格规则：黄金和铜必须都成功才能写入SAP
 - 失败时完全不写入，避免部分数据
 
@@ -18,7 +18,7 @@
 └──────┬──────┘
        │
 ┌──────▼──────────────────────┐
-│  Python Service (port 8766) │
+│  Python Service (port 8769) │
 │  /prices/latest             │
 │  - 抓取黄金价格             │
 │  - 抓取铜价格               │
@@ -71,8 +71,8 @@ python -m pytest tests/test_gold_parser.py -v
 ### 启动服务
 
 ```bash
-# 默认端口8766
-python -m uvicorn service.metal_price_service:app --host 0.0.0.0 --port 8766
+# 默认端口8769
+python -m uvicorn service.metal_price_service:app --host 0.0.0.0 --port 8769
 
 # 或直接运行
 python service/metal_price_service.py
@@ -81,8 +81,8 @@ python service/metal_price_service.py
 ### 测试API
 
 ```bash
-curl http://localhost:8766/health
-curl http://localhost:8766/prices/latest
+curl http://localhost:8769/health
+curl http://localhost:8769/prices/latest
 ```
 
 ## 数据源
@@ -101,7 +101,7 @@ curl http://localhost:8766/prices/latest
 
 ### 服务器部署
 
-服务部署在同一台机器上，与 `po-parser` (端口8765) 不同端口：
+服务部署在同一台机器上，与 `po-parser` (端口8765) 和 `hana-query-api` (端口8766) 不同端口：
 
 ```bash
 # systemd unit示例
@@ -114,6 +114,7 @@ Type=simple
 User=n8n
 WorkingDirectory=/opt/metal-price-sync
 ExecStart=/usr/bin/python3 /opt/metal-price-sync/service/metal_price_service.py
+Environment=SERVICE_PORT=8769
 Restart=always
 RestartSec=10
 
