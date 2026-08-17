@@ -12,7 +12,7 @@
 | 系统 | URL | Client | 认证 |
 |------|-----|--------|------|
 | 测试 | `http://10.142.1.20:8000/sap/bc/srt/rfc/sap/zws_general/600/zws_general/zbd_general?sap-client=600` | 600 | Basic Auth |
-| 生产 | TBD | TBD | TBD |
+| 生产 | `http://10.142.1.31:8000/sap/bc/srt/rfc/sap/zws_general/800/zws_general/zbd_general` | 800 | Basic Auth |
 
 ### 认证方式
 
@@ -194,7 +194,7 @@ return [{
 ### 测试/生产切换
 
 ```
-手动触发（system_type: "test" | "prod"）
+手动触发（system_type: "test" | "prod"；定时触发可由 Code 节点设置默认环境）
   → Switch 节点路由
   → Code 节点输出 URL + Credential Name
   → HTTP Request 节点使用动态 URL 和认证
@@ -203,14 +203,14 @@ return [{
 ### Code 节点配置选择
 
 ```javascript
-const systemType = $('选择系统').first().json.system_type;
+const systemType = $input.first().json.system_type || 'prod';
 const config = {
   test: {
     url: 'http://10.142.1.20:8000/...?sap-client=600',
     credentialName: 'SAP Test System'
   },
   prod: {
-    url: 'PROD_URL_PLACEHOLDER',
+    url: 'http://10.142.1.31:8000/sap/bc/srt/rfc/sap/zws_general/800/zws_general/zbd_general',
     credentialName: 'SAP Production System'
   }
 };

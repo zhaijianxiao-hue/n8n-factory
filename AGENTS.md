@@ -4,9 +4,10 @@
 
 **All agents MUST read these files before working:**
 
-1. `KNOWLEDGE.md` - n8n 核心知识和通用规则（精简版）
-2. `LEARNINGS.md` - **踩坑记录和避坑指南**（新增）
-3. `workflows/*/KNOWLEDGE.md` - 产品专属知识
+1. `PROJECT_STATUS.md` - 当前阶段、下一行动和阻塞状态
+2. `KNOWLEDGE.md` - n8n 核心知识和通用规则（精简版）
+3. `LEARNINGS.md` - **踩坑记录和避坑指南**（新增）
+4. `workflows/*/KNOWLEDGE.md` - 产品专属知识
 
 ### 踩坑记录规则（重要）
 
@@ -89,13 +90,14 @@ python -m n8n deactivate --id <workflow-id>
 If you are starting fresh in this repository and need to become productive quickly, do this in order:
 
 1. Read this `AGENTS.md` completely.
-2. Read root `KNOWLEDGE.md` completely.
-3. Read the specific product README before editing product files.
+2. Read root `PROJECT_STATUS.md` completely.
+3. Read root `KNOWLEDGE.md` completely.
+4. Read the specific product README before editing product files.
    - For the current primary product, read `workflows/po-parser/README.md`.
-4. If the task is about workflow behavior, inspect both:
+5. If the task is about workflow behavior, inspect both:
    - `workflows/po-parser/workflow.json`
    - `workflows/po-parser/service/po_parser_service.py`
-5. If the task mentions EVYTRA or customer-specific parsing, also inspect:
+6. If the task mentions EVYTRA or customer-specific parsing, also inspect:
    - `workflows/po-parser/tests/test_evytra_profile.py`
    - `workflows/po-parser/tests/fixtures/evytra/extracted-linux.txt`
    - `workflows/po-parser/profiles/evytra.json`
@@ -364,3 +366,16 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Preserve unrelated user changes in a dirty worktree.
 - If repository instructions and runtime reality conflict, follow runtime reality and mention the discrepancy.
 - When in doubt, leave a concise note in your final summary describing assumptions and verification gaps.
+
+## Git workflow
+
+- Default/base branch: `master`, tracking `origin/master` on GitHub.
+- Prefer one independent task per worktree and task branch. Use `codex/<description>` for Codex-created branches.
+- Do not commit directly to `master`; create a task branch and merge only after relevant verification. Direct pushes to `master` require explicit user authorization.
+- Keep each commit coherent and limited to one product, service, or documentation concern. Do not combine unrelated concurrent work merely to make the tree clean.
+- Autonomous local commits are not allowed unless the user explicitly requests a commit or publish operation.
+- Do not push, merge, create a remote branch, or open a pull request unless the user explicitly authorizes that external action.
+- Treat `master`, release branches, and any shared integration branch as protected/shared. Never force-push or rewrite their history.
+- Before commit, run the narrowest relevant tests plus structural checks for changed workflow JSON. Before push, review the staged diff, confirm no secrets or customer business data are included, and verify the target branch and remote SHA.
+- Concurrent chats and worktrees own their changes separately. Never stage, commit, reset, stash, or clean unrelated changes without explicit scope confirmation.
+- When no commit is authorized, leave verified changes in the working tree and report staged, unstaged, and untracked state precisely.

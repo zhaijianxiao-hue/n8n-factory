@@ -13,16 +13,16 @@
 
 **根因**: n8n 运行在 Docker 容器内，`localhost` 指向容器自己，不是宿主机。
 
-**解决**: 改用宿主机 IP `10.142.1.135:8766`。
+**解决**: 改用宿主机 IP 和目标服务的实际端口，例如 `10.142.1.135:8769`。
 
 **预防规则**:
 ```
 新服务部署到 n8n 同机时，workflow 中 HTTP Request URL：
 ❌ localhost:port（容器内部）
-✅ 宿主机IP:port（10.142.1.135:port）
+✅ 宿主机IP:port（10.142.1.135:实际服务端口）
 ```
 
-**影响范围**: 所有 n8n workflow 调用同机部署的服务（po-parser 8765、metal-price-sync 8766 等）。
+**影响范围**: 所有 n8n workflow 调用同机部署的服务（例如 po-parser 8765、hana-query-api 8766、metal-price-sync 8769）。
 
 ---
 
@@ -387,6 +387,339 @@ OpenAI-compatible 供应商接入 n8n AI Chat Model：
 ```
 
 **影响范围**: 所有在 n8n 中通过 `OpenAI Chat Model` 节点接入第三方 OpenAI-compatible 网关、公司模型网关或 LiteLLM/vLLM 类服务的场景。
+
+### 15. n8n HTTP Basic Auth 不等于服务端出站 SAP 认证
+
+**问题**: n8n HTTP Request 节点给 `po-parser` 的 `/to-sap` 配了 Basic Auth，容易误以为这组凭据会被继续用于调用 SAP 生产系统。
+
+**根因**: Basic Auth 只在 n8n 调用 `po-parser` 服务时发送给本地 FastAPI 服务；`po-parser` 转发到 SAP 时使用的是服务端环境变量里的 `SAP_USER` / `SAP_PASS`，两段认证链路彼此独立。
+
+**解决**: 保留 `/to-sap` 作为测试系统 endpoint，新增 `/to_sap_prd` 作为生产系统 endpoint，并分别配置 `SAP_*` 与 `SAP_PRD_*` 环境变量；生产 workflow 的 SAP 节点指向 `/to_sap_prd`。
+
+**预防规则**:
+```
+n8n -> 本地服务 -> SAP 这类两跳调用：
+1. ✅ 先区分入站认证和出站认证
+2. ✅ n8n credential 只保证能调用本地服务，不自动传递给 SAP
+3. ✅ 测试/生产 SAP 必须拆 endpoint 或显式选择目标环境
+4. ✅ 生产凭据放 systemd/env secret，不写入 workflow JSON 或仓库
+5. ❌ 不要把 HTTP Request 节点的 Basic Auth 当成 SAP 出站账号
+```
+
+**影响范围**: 所有 n8n 调用本地 FastAPI 服务，再由服务转发 SAP/ERP/外部系统的工作流。
+
+### 16. SAP HTTPS 证书要匹配实际服务端证书和访问主机名
+
+**问题**: 生产 SAP 地址用 `https://10.142.1.30:44300/...` 调用时报 `certificate verify failed: self-signed certificate`。业务侧提供了 `toppcb.com.cer`，但该证书是 `*.toppcb.com / toppcb.com`，与 SAP 实际返回证书不一致。
+
+**根因**: `10.142.1.30:44300` 实际返回自签证书 `CN=s4pascs.tpc2.tianjin-pcb.com`，且没有 `subjectAltName`。继续用 IP 访问会导致证书主机名不匹配；使用不相关的公网证书也无法建立信任链。
+
+**解决**: 从 SAP 服务端导出实际自签证书，配置为 `SAP_PRD_CA_BUNDLE`；将 `SAP_PRD_URL` 改为证书 CN 对应主机名，并在服务器 `/etc/hosts` 映射到 `10.142.1.30`。
+
+**预防规则**:
+```
+SAP HTTPS 证书排查：
+1. ✅ 先用 openssl s_client 查看服务端实际返回的 subject / issuer / SAN
+2. ✅ CA bundle 必须信任实际服务端证书或其签发 CA
+3. ✅ URL host 必须匹配证书 SAN 或 CN，不要直接用 IP 绕过主机名
+4. ⚠️ 没有 SAN 的证书只能临时依赖 CN fallback，长期应让 Basis 重签带 SAN 的证书
+5. ❌ 不要把文件名像 toppcb.com.cer 的证书默认当成 SAP 当前服务证书
+```
+
+**影响范围**: 所有通过 HTTPS 调用自签名 SAP NetWeaver / RFC SOAP 服务的场景。
+
+### 17. EVYTRA 行项目客户物料不一定是纯数字
+
+**问题**: EVYTRA PDF `Order2261643.pdf` 能识别到 `customer_profile=evytra`，但 `items=[]`，导致生产 workflow 输出空行项目并进入 review。
+
+**根因**: EVYTRA 专属解析器早期按旧样本假设 `customer_material` 是纯数字；新样本行项目为 `AN00R08236 / FUX3001 743873 ÄI013 TA`。直接放宽正则后，电话号里的 `20 3902 14` 又可能被误识别成行项目起点。
+
+**解决**: EVYTRA item header 匹配必须锚定“独立行号 + article + qty + customer material + TA + pcs”的真实表格结构；客户物料允许字母、数字、空格、斜杠等内容，但不能从正文任意位置开始匹配。
+
+**预防规则**:
+```
+EVYTRA PDF 行项目解析：
+1. ✅ customer_material 不能假设为纯数字
+2. ✅ item line_no 必须是独立行开头的 10/20/30/40
+3. ✅ 放宽正则后必须用真实 PDF 文本复核，防止电话号/日期误匹配
+4. ✅ 新版 EVYTRA 样本要覆盖 alphanumeric customer_material
+5. ❌ 不要只用旧 fixture 判断 EVYTRA 行项目解析已经稳定
+```
+
+**影响范围**: EVYTRA 及所有依赖 PDF 文本层正则解析行项目的客户 Profile。
+
+### 18. Docker 拉取 n8n 镜像时代理要配给 Docker daemon
+
+**问题**: 升级服务器 n8n Docker 镜像时，`docker compose pull n8n` 长时间卡住；服务器直连 `registry-1.docker.io` 被拒绝或超时，但 `curl -x http://10.142.192.59:10808` 可以访问 Docker Hub。
+
+**根因**: `docker pull` 的出网请求由 Docker daemon 发起，不由当前 shell 的 `curl` 或普通命令环境发起。只验证 shell 代理可用，或只给当前命令设置代理，不能保证 Docker daemon 拉镜像也会走代理。
+
+**解决**: 在服务器 `/etc/systemd/system/docker.service.d/http-proxy.conf` 给 Docker daemon 配置 `HTTP_PROXY` / `HTTPS_PROXY` 后 `systemctl daemon-reload && systemctl restart docker`，再拉取明确版本镜像，例如 `n8nio/n8n:2.23.4`。升级前先确认 n8n 数据目录是持久化挂载，并备份 `n8n_data`。
+
+**预防规则**:
+```
+n8n Docker 升级拉镜像：
+1. ✅ 先确认 Docker daemon 能通过代理访问 Docker Hub，而不是只测 curl
+2. ✅ 需要代理时，把 HTTP_PROXY / HTTPS_PROXY 配到 docker.service 的 systemd drop-in
+3. ✅ 拉明确稳定版本镜像，升级前备份 n8n_data 并保留旧镜像回滚 tag
+4. ⚠️ 重启 Docker daemon 可能造成 n8n 短暂闪断，先通知再操作
+5. ❌ 不要把当前 shell 能访问外网误认为 docker pull 一定可用
+```
+
+**影响范围**: 所有在受限网络服务器上通过 Docker / Docker Compose 升级 n8n 或其他容器镜像的场景。
+
+### 19. 同机服务端口冲突会让 workflow 打到错误 service
+
+**问题**: `Metal Price Sync - 每日金属价格同步` 的 `获取金铜价格` 节点请求 `http://10.142.1.135:8766/prices/latest` 返回 404，n8n 显示 `The resource you are requesting could not be found`。
+
+**根因**: 线上 `hana-query-api.service` 已经占用 `8766`，`metal-price-sync.service` 仍尝试绑定 `8766`，因此反复重启并报 `[Errno 98] address already in use`。workflow 请求 `8766` 时实际打到了 HANA Query API，HANA 服务没有 `/prices/latest` 路由，所以返回 404。
+
+**解决**: 给 `metal-price-sync.service` 增加 systemd drop-in 设置 `SERVICE_PORT=8769`，重启服务后验证 `/health` 返回 `service=metal-price-sync`；同时把生产 workflow 中 `获取金铜价格` 和 `构建 SOAP Body` 两个 HTTP Request 节点改到 `http://10.142.1.135:8769`。
+
+**预防规则**:
+```
+同机部署多个 FastAPI service 时：
+1. 先用 systemctl status/journalctl 看目标 service 是否真实 active
+2. 用 /health 校验返回的 service 名，不要只看端口 200
+3. 用 ss -ltnp 确认端口占用进程
+4. workflow URL、systemd SERVICE_PORT、产品 KNOWLEDGE 必须同步
+5. 端口冲突导致的 404 优先怀疑“请求打到另一个服务”
+```
+
+**影响范围**: 所有 n8n 同机部署的 service，尤其是 `hana-query-api`、`metal-price-sync`、`po-parser`、`screenshot-service` 等端口固定服务。
+
+### 20. Playwright full_page 不会自动展开内部滚动容器
+
+**问题**: `screenshot-service` 请求里设置了 `full_page: true`，但 NexReport 报表页截图仍只截到一屏；手工打开页面时实际可以向下滚动。
+
+**根因**: Playwright 的 `page.screenshot(full_page=True)` 按 `document.body` / `documentElement` 的滚动高度截图，不会自动展开页面内部的滚动容器。NexReport 展示页外壳使用 `height: 100vh; overflow: hidden`，真正滚动的是 `.app-content { overflow-y: auto }`，因此 `body.scrollHeight` 只有视口高度。
+
+**解决**: 对 NexReport `display_token` 展示模式增加专用布局 class，让展示页外壳和 `.app-content` 使用自然高度与 `overflow: visible`，使整页内容回到 body/document 滚动高度中；截图服务继续用原有 `full_page: true`。
+
+**预防规则**:
+```
+排查 Playwright full_page 只截一屏：
+1. 先量 document.body.scrollHeight / documentElement.scrollHeight
+2. 再量主要容器（如 .app-content）的 clientHeight / scrollHeight / overflowY
+3. 如果 body 只有一屏但内部容器 scrollHeight 很高，优先改页面展示/打印布局，而不是怀疑截图服务 full_page 失效
+4. 对自动截图专用页面，避免 height: 100vh + 内部 overflow-y:auto；让 body 能自然承载整页高度
+```
+
+**影响范围**: 所有通过 `screenshot-service` 截取 React/Ant Design 大屏、报表页、后台页等固定视口布局的场景。
+
+### 21. screenshot-service 的 delay_ms 上限和 n8n HTTP 超时不是一回事
+
+**问题**: 慢报表需要更多时间渲染，旧版 n8n workflow 已把截图请求 `delay_ms` 设置为 `30000`，但继续把参数调大时截图服务会返回 422。
+
+**根因**: `screenshot-service` 的旧版 `delay_ms` 字段在 FastAPI/Pydantic 入参校验中写死 `le=30000`，这是页面打开后额外等待时间的服务端硬上限。n8n HTTP Request 节点未显式配置 `options.timeout` 时，运行时代码会给请求设置 5 分钟默认超时，因此旧版限制主要在截图服务入参校验，不在 n8n 调用端。
+
+**解决**: 把截图服务的最大等待时间改成环境变量 `SCREENSHOT_MAX_DELAY_MS`，默认 `300000`（5 分钟）；再把 workflow 截图节点的 `delay_ms` 调到不超过该上限。若显式设置 n8n HTTP Request `options.timeout`，应大于 `delay_ms + 页面加载超时 + 截图耗时`。
+
+**预防规则**:
+```
+慢报表截图等待时间排查：
+1. 先看 screenshot-service 的 delay_ms 校验上限，当前默认 300000ms，超过上限会 422
+2. 再看 SCREENSHOT_TIMEOUT，它只控制 page.goto 页面打开阶段，不等于渲染后等待时间
+3. n8n HTTP Request options 为空时默认请求超时是 5 分钟，不要误以为显示默认值 10000ms 一定生效
+4. 调大等待时间时，服务端 delay_ms 上限、workflow delay_ms、n8n 请求 timeout 要一起对齐
+5. 长期方案优先用页面 ready 标记或选择器等待，少依赖盲等
+```
+
+**影响范围**: 所有通过 `screenshot-service` 截取加载较慢的 NexReport 或其他网页报表的 workflow。
+
+### 22. n8n 定时触发不会自动提供手动测试字段
+
+**问题**: `Metal Price Sync - 每日金属价格同步` 的 `写入 SAP` 节点已经选了 `SAP Production System` 凭证，但正式定时运行仍可能打到测试 SAP URL，导致“凭证是生产、URL 是测试”的混合状态。
+
+**根因**: `system_type` 只来自手动触发或上游输入；定时触发本身不提供这个字段。`获取 SAP 配置` Code 节点用 `$input.first().json.system_type || 'test'` 时，定时链路会默认走 `test`，而 HTTP Request 节点的 credential 只控制认证，不决定 URL。
+
+**解决**: 生产 workflow 中移除 `选择系统` Switch 节点，让 `手动触发` 和 `定时触发` 都直接进入 `获取 SAP 配置`；`获取 SAP 配置` 固定输出生产 SAP endpoint 和 `SAP Production System`，同时确认 `写入 SAP` 节点使用 `httpBasicAuth` 和生产凭证。
+
+**预防规则**:
+```
+n8n 手动/定时共用 workflow 做环境切换时：
+1. 先检查定时触发路径是否真的会产生 system_type 等环境字段
+2. 凭证选择不等于 URL 环境选择，二者必须分别验证
+3. 若 workflow 已切正式生产，优先移除测试/生产切换节点，固定生产配置
+4. 验证时查看“获取 SAP 配置”节点输出的 url，而不是只看“写入 SAP”节点 credential
+```
+
+**影响范围**: 所有同一 workflow 通过 `system_type`、`env`、`target` 等输入字段切换测试/生产外部系统的 n8n 定时任务。
+
+### 23. n8n Docker 内 CLI 执行会与主进程 Task Broker 端口冲突
+
+**问题**: 在运行中的 n8n Docker 容器里执行 `n8n execute --id=<workflow-id>` 时报错：`n8n Task Broker's port 5679 is already in use`。同一版本的公共 API 也不支持 `POST /api/v1/workflows/{id}/execute`，会返回 405。
+
+**根因**: n8n 主进程已经启动了 task broker 并占用默认 `5679` 端口；容器内另起 CLI 执行时会再尝试启动一个 broker。公共 API 主要用于 workflow CRUD 和 execution 查询，不保证支持直接执行 workflow。
+
+**解决**: CLI 手动执行时给本次命令指定临时 broker 端口，例如：
+```
+docker exec -e N8N_RUNNERS_BROKER_PORT=5690 n8n-n8n-1 n8n execute --id=<workflow-id> --rawOutput
+```
+如果需要改变入口或测试特定路径，不要直接改生产 workflow；可临时创建一个未激活 workflow，执行后立即删除。
+
+**预防规则**:
+```
+n8n Docker 线上手动执行 workflow：
+1. 不要假设公共 API 有 /execute，可先确认端点是否返回 405
+2. 容器内 n8n execute 需要避开主进程 task broker 端口
+3. 用 N8N_RUNNERS_BROKER_PORT 指定未占用临时端口
+4. 测特定路径时优先创建临时未激活 workflow，跑完删除，避免污染生产 workflow
+```
+
+**影响范围**: n8n 2.x Docker 部署中，通过 CLI 手动执行 workflow 或调试定时/手动触发路径的场景。
+
+### 24. PowerShell 构造 n8n connections 二维数组会被自动压扁
+
+**问题**: 用 PowerShell 通过 n8n API 更新 workflow connections 时，写成 `@(@(@{ node = ... }))` 后，PUT `/workflows/{id}` 返回 `connections.<node>.main[0] (invalid_type): Expected array, received object`。
+
+**根因**: PowerShell 的数组展开规则会把嵌套单元素数组自动压扁，导致 n8n 需要的 `main: [[{...}]]` 被序列化成 `main: [{...}]`。
+
+**解决**: 用显式 `System.Collections.Generic.List[object]` 构造外层和内层数组，再赋给 `connections.<node>.main`。
+
+**预防规则**:
+```
+PowerShell 更新 n8n workflow connections：
+1. n8n connections.main 必须是二维数组：[[{ node, type, index }]]
+2. 单元素嵌套数组不要直接用 @(@(...))，容易被 PowerShell 压扁
+3. PUT 前可先 ConvertTo-Json 检查 main 是否仍是 [[...]]
+4. 若 n8n 报 Expected array, received object，优先检查连接数组维度
+```
+
+**影响范围**: 所有用 PowerShell 直接构造 n8n workflow JSON 并通过 API 更新连接结构的场景。
+
+### 25. package.json 中声明的 workflow 脚本不一定真实存在
+
+**问题**: 执行 `npm run validate` 报 `Cannot find module 'scripts/validate-workflows.js'`；`npm run deploy` 同样引用尚不存在的 `scripts/deploy.js`，根 README 还曾指向不存在的 `scripts/deploy.sh`。
+
+**根因**: `package.json` 和 `scripts/README.md` 保留了脚手架阶段的命令与规划，但实际 JS 脚本从未加入仓库。
+
+**解决**: 当前 workflow 验证、读取和部署统一使用项目 `.opencode/skill/n8n/`；README 明确标注 `scripts/` 只有规划文档。在真正补齐并验证脚本前，不把 npm validate/deploy 当作可用入口。
+
+**预防规则**:
+```
+调用仓库脚本前：
+1. ✅ 先确认 package.json 指向的实际文件存在
+2. ✅ n8n 操作优先使用项目 n8n skill
+3. ✅ 验证报告必须记录真实命令和退出码
+4. ❌ 不要仅凭 package.json 或 scripts/README.md 推断脚本可运行
+```
+
+**影响范围**: 本仓库所有 workflow 验证和部署任务。
+
+### 26. po-parser 测试依赖文件不是完整测试环境清单
+
+**问题**: 直接按 `workflows/po-parser/tests/requirements.txt` 理解测试环境时，pytest 收集仍可能因缺少 `jsonschema` 失败；异步测试还会因缺少 `pytest-asyncio` 出现 unknown mark，n8n skill 的 Python 工具缺少 `requests` 时也无法启动。
+
+**根因**: 当前测试依赖文件只列了 PDF 解析和模型调用依赖，没有覆盖测试框架、Schema 校验、异步插件及 n8n 工具依赖。
+
+**解决**: 运行测试前先核对测试文件的 import 和 pytest mark，并使用已配置完整依赖的环境；若要建立可复现环境，应先补齐并验证依赖清单，本次知识库审计不修改全局 Python 环境。
+
+**预防规则**:
+```
+po-parser 测试环境检查：
+1. ✅ 不把 tests/requirements.txt 当作完整锁定清单
+2. ✅ 至少检查 pytest、pytest-asyncio、jsonschema、requests 和服务运行依赖
+3. ✅ 依赖缺失导致 collection error 时，报告“未运行”，不能报告“测试失败”或“测试通过”
+4. ❌ 不为一次验证静默修改全局 Python 环境
+```
+
+**影响范围**: po-parser 本地回归测试、CI 初始化和项目 n8n Python 工具验证。
+
+### 27. n8n Code 节点可能禁止读取环境变量
+
+**问题**: 汇率 workflow 的 Code 节点读取 `$env.FORCE_MONTH_END` 时，执行立即失败并报 `access to env vars denied`，尚未进入后续 HTTP Request 节点。
+
+**根因**: 当前 n8n 运行环境禁止节点访问环境变量；Code 节点或表达式里出现 `$env` 不代表部署环境一定允许读取。
+
+**解决**: 不在 Code 节点依赖 `$env` 传入测试开关或业务配置；改用上游输入、固定配置节点或 n8n 支持的安全配置方式。上线前用真实执行验证，不只做结构校验。
+
+**预防规则**:
+```
+n8n workflow 使用环境变量：
+1. ✅ 先用最小手动执行确认当前实例是否允许节点读取 $env
+2. ✅ 测试开关优先通过显式输入或配置节点传递
+3. ✅ 结构 validate 通过后仍要做运行时验证
+4. ❌ 不要假设容器里已设置变量，Code/Expression 节点就一定能读取
+```
+
+**影响范围**: 所有在 Code、Set、HTTP Request 等节点表达式中使用 `$env` 的 workflow。
+
+### 28. Schedule 节点名称不决定实际执行时区
+
+**问题**: 汇率 workflow 的节点名写着 `Daily 08:05 JST`，但 workflow 未设置独立时区；当前 n8n 容器的 `GENERIC_TIMEZONE` 和 `TZ` 均为 `Asia/Shanghai`，因此 cron 实际按北京时间 08:05 执行。
+
+**根因**: Schedule Trigger 的 cron 表达式使用 workflow 或 n8n 实例时区，节点名称和 Code 节点里的日期计算时区不会改变调度时区。
+
+**解决**: 明确设置 workflow 时区，或按实例时区换算 cron；同时让调度时区、日期计算时区和文档保持一致。
+
+**预防规则**:
+```
+n8n 定时任务时区检查：
+1. ✅ 核对 workflow timezone 和容器 GENERIC_TIMEZONE/TZ
+2. ✅ 节点名称、cron、业务日期计算使用一致时区
+3. ✅ 上线前用服务器当前时间和一次实际触发验证
+4. ❌ 不要把节点名中的 JST/CST 当成真实调度配置
+```
+
+**影响范围**: 所有使用 Schedule Trigger，尤其是跨时区、日末或月末判断的 workflow。
+
+### 29. SAP TCURR-GDATU 的外部日期与 RFC 内部日期可能不同
+
+**问题**: 汇率 API 文档要求 `GDATU` 直接传 `YYYYMMDD`，但 QAS 实测传 `20260713` 时 SAP Function 对全部行返回“日期无效”；改传 TCURR 的内部倒置日期 `79739286` 后不再触发日期校验错误，而进入后续表锁检查。
+
+**根因**: `TCURR-GDATU` 使用倒置日期存储。通过 RFC/PyRFC 直接映射 TCURR 结构时，不一定自动执行 SAP GUI/ABAP 屏幕层的日期转换；外部 API 若承诺接收普通 `YYYYMMDD`，必须在 API 或 Function 边界显式转换后再传入 TCURR 结构。
+
+**解决**: 当前 NexCore 汇率 API 保持外部 `YYYYMMDD` 契约，并在 operation 边界完成 TCURR 内部日期转换。Workflow 发送普通日期，不得预转换；同时保留普通有效日期用于审计，并用 PRD/QAS 回归测试确认映射。
+
+**预防规则**:
+```
+SAP 汇率 GDATU 集成：
+1. ✅ 区分 API 外部日期契约和 TCURR-GDATU 内部存储值
+2. ✅ 用 QAS 实际调用验证转换发生在哪一层
+3. ✅ 转换集中在 NexCore/SAP API 边界，并补普通日期到倒置日期的回归测试
+4. ❌ 不要仅凭字段名或 API 文档假设 RFC 会自动执行 INVDT 转换
+```
+
+**影响范围**: 所有通过 RFC/BAPI/自定义 Function 写入 TCURR 或复用 `TCURR-GDATU` 数据元素的集成。
+
+### 30. Windows ZoneInfo 需要显式安装 tzdata
+
+**问题**: exchange-rate-sync 在 Windows 测试环境调用 `ZoneInfo("Asia/Shanghai")` 时抛出 `ZoneInfoNotFoundError`，导致 API 测试失败。
+
+**根因**: Windows 通常没有 Python `zoneinfo` 可直接读取的系统 IANA 时区数据库；项目依赖中也没有安装 PyPI `tzdata`。
+
+**解决**: 在 exchange-rate-sync 的运行依赖中加入 `tzdata>=2024.1`，让 Windows 和缺少系统时区数据库的环境都能解析 `Asia/Shanghai`。
+
+**预防规则**:
+```
+Python ZoneInfo 跨平台检查：
+1. ✅ 使用 IANA 时区名称时把 tzdata 纳入运行依赖
+2. ✅ 在 Windows 环境实际构造 ZoneInfo("Asia/Shanghai") 验证
+3. ✅ CI 至少覆盖一个没有系统 tzdata 的环境
+4. ❌ 不要因 Linux 服务器可用就假设 Windows 本地测试也可用
+```
+
+**影响范围**: 所有使用 Python `zoneinfo` 和 IANA 时区名称的跨平台 service 与测试。
+
+### 31. Windows 运行 n8n Python 验证器要显式使用 UTF-8
+
+**问题**: 项目 n8n 验证器读取包含中文节点名的 workflow JSON 时，在 Windows 上报 GBK 解码错误，无法完成结构验证。
+
+**根因**: 验证脚本读取文本时依赖 Python 默认编码；中文 workflow 是 UTF-8，而当前 Windows Python 默认文本编码为 GBK。
+
+**解决**: 运行验证器前设置 `PYTHONUTF8=1`，让 Python 以 UTF-8 模式读取 workflow JSON。
+
+**预防规则**:
+```
+Windows 本地验证中文 workflow：
+1. ✅ PowerShell 先执行 $env:PYTHONUTF8='1'
+2. ✅ 再运行 .opencode/skill/n8n/scripts/n8n_tester.py validate
+3. ✅ 区分编码失败和 workflow 结构失败
+4. ❌ 不要因 GBK UnicodeDecodeError 误判 JSON 已损坏
+```
+
+**影响范围**: Windows 上所有包含中文节点名或中文参数的 n8n workflow Python 验证任务。
 
 ## 待登记模板
 

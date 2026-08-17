@@ -7,8 +7,10 @@
 新开 session 时，先按这个顺序读：
 
 1. `AGENTS.md`
-2. `KNOWLEDGE.md`
-3. 对应产品目录下的 `README.md`
+2. `PROJECT_STATUS.md`
+3. `KNOWLEDGE.md`
+4. `LEARNINGS.md`
+5. 对应产品目录下的 `README.md` 和 `KNOWLEDGE.md`
 
 当前主产品是：
 - `workflows/po-parser`
@@ -17,7 +19,7 @@
 - `workflows/po-parser/workflow.json`
 - `workflows/po-parser/service/po_parser_service.py`
 
-`AGENTS.md` 记录了新 session 上手顺序、服务器连接方式、生产 workflow ID、常见坑和调试捷径；`KNOWLEDGE.md` 记录了 n8n API、表达式、节点兼容性和排障经验。
+`AGENTS.md` 记录了新 session 上手顺序、服务器连接方式、生产 workflow ID、常见坑和调试捷径；根 `KNOWLEDGE.md` 负责跨产品索引与通用规则，`LEARNINGS.md` 负责可复用踩坑，各产品 `KNOWLEDGE.md` 负责产品专属知识。
 
 ## 项目定位
 
@@ -64,6 +66,7 @@ n8n-projects/
 | 产品名称 | 状态 | 描述 |
 |---------|------|------|
 | po-parser | 🚧 开发中 | 采购订单 PDF 自动解析 → SAP 中间表 |
+| exchange-rate-sync | ✅ 生产运行 | CFETS 人民币汇率中间价 → SAP OB08 |
 
 ## 快速开始
 
@@ -83,7 +86,9 @@ npm install
 
 1. 在 `workflows/` 下创建新产品目录
 2. 参考 `docs/development.md` 进行开发
-3. 使用 `scripts/deploy.sh` 部署到 n8n
+3. 使用项目 `.opencode/skill/n8n/` 完成验证和部署
+
+当前 `scripts/` 目录只有规划文档，`package.json` 中的 `validate` / `deploy` 命令引用的 JS 文件尚不存在；不要把这些命令当作可用部署入口。
 
 ## 架构概览
 

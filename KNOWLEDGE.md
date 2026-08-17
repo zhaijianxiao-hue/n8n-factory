@@ -8,10 +8,16 @@
 
 ## 知识库索引
 
+### 当前项目状态
+
+- `PROJECT_STATUS.md` - 当前阶段、下一行动、阻塞状态和最近复核时间
+
 ### 主题知识（跨产品）
 
 | 主题 | 目录 | 说明 |
 |------|------|------|
+| n8n 服务器运维 | `topics/n8n/` | Docker Compose 升级、备份、代理、回滚、健康检查 |
+| Exchange EWS | `topics/exchange/` | 自建 Exchange 连接、查询优化、附件下载、超时配置 |
 | 飞书多维表格 | `topics/feishu/` | Token、API、权限、踩坑 |
 | SAP SOAP RFC | `topics/sap/` | SOAP XML、GUID、认证、响应解析 |
 
@@ -20,7 +26,8 @@
 | 产品 | 目录 | 端口 | 说明 |
 |------|------|------|------|
 | po-parser | `workflows/po-parser/` | 8765 | PO PDF 解析服务 |
-| metal-price-sync | `workflows/metal-price-sync/` | 8766 | 金属价格同步服务 |
+| metal-price-sync | `workflows/metal-price-sync/` | 8769 | 金属价格同步服务 |
+| exchange-rate-sync | `workflows/exchange-rate-sync/` | 8770 | CFETS 人民币汇率中间价抓取与标准化服务 |
 | old-erp-sync | `workflows/old-erp-sync/` | - | 老 ERP → 飞书流程 |
 
 ### 通用服务
@@ -36,16 +43,11 @@
 |------|------|------|------|
 | po-parser service | `workflows/po-parser/service/` | 8765 | PO PDF 解析主服务，供 n8n 调用解析接口 |
 | po-parser /check-email | `workflows/po-parser/service/` | 8765 | Exchange EWS 拉取邮件附件到 incoming 目录 |
-| po-parser profile lab UI | `workflows/po-parser/profile_lab_ui/` | 8768 | Profile Lab 审核/评测 UI，FastAPI 提供 API 并托管构建后的前端 |
-| metal-price-sync service | `workflows/metal-price-sync/service/` | 8766 | 金属价格同步服务，提供价格抓取与 SOAP body 生成接口 |
+| po-parser profile lab UI | `workflows/po-parser/profile_lab_ui/` | 8768 | Profile Lab 审核/评测 UI；详见产品 `KNOWLEDGE.md` |
+| metal-price-sync service | `workflows/metal-price-sync/service/` | 8769 | 金属价格同步服务，提供价格抓取与 SOAP body 生成接口 |
+| exchange-rate-sync service | `workflows/exchange-rate-sync/service/` | 8770 | CFETS 汇率抓取、发布日期回退和标准化；生产 workflow 通过 NexCore 写 SAP PRD |
 
-- `po-parser profile lab` (`workflows/po-parser/profile_lab/` + `workflows/po-parser/profile-lab/`)
-  - 本地优先的客户 PO 解析 Profile 训练/评测/调优核心
-  - 命令入口：`cd workflows/po-parser && python -m profile_lab init-customer --customer evytra`
-  - 产物：customer assets、runs、candidate JSON、adjudication reports、evaluation reports、published profiles
-  - UI 服务：`cd workflows/po-parser && python -m profile_lab_ui`，默认端口 `8768`
-  - 审批通知：设置 `PO_PROFILE_LAB_APPROVAL_WEBHOOK_URL` 后，提交审批时发送 webhook
-  - 管理员动作：`approve` / `reject` / `publish` 需要设置 `PO_PROFILE_LAB_ADMIN_TOKEN`，前端通过 `X-PO-Profile-Lab-Admin-Token` 调用
+产品端点、运行模型和 Profile 生命周期由各产品 `KNOWLEDGE.md` 维护，根文件不重复保存实现细节。
 
 ### 踩坑记录
 
@@ -73,13 +75,18 @@
 
 - `po-parser service` (`workflows/po-parser/service/`)
   - Base URL: `http://10.142.1.135:8765`
-  - 解析 PDF、客户 profile 路由、输出标准 PO JSON
-  - 同机还提供 `/check-email`：从 Exchange EWS 拉取带附件邮件到 SMB incoming
+  - 解析 PDF、客户 Profile 路由、Exchange 附件拉取、SAP 转发
+  - 详细端点和部署约束：`workflows/po-parser/KNOWLEDGE.md`
 
 - `metal-price-sync service` (`workflows/metal-price-sync/service/`)
-  - 当前 README 标注端口 `8766`，实际部署时需避免与通用服务冲突
-  - 提供价格抓取、标准化 JSON、SOAP body 生成等接口
-  - 供每日价格同步 workflow 调用
+  - Base URL: `http://10.142.1.135:8769`
+  - 价格抓取、标准化 JSON、SOAP body 生成；详细规则见 `workflows/metal-price-sync/KNOWLEDGE.md`
+
+- `exchange-rate-sync service` (`workflows/exchange-rate-sync/service/`)
+  - Base URL: `http://10.142.1.135:8770`
+  - `GET /health`：服务、版本和 provider 健康信息
+  - `POST /rates/resolve`：按请求日批量返回 CFETS 外币兑 CNY 中间价
+  - service 不直接写 SAP；生产 workflow 调用 NexCore PRD API，详细规则见 `workflows/exchange-rate-sync/KNOWLEDGE.md`
 
 ### Service 维护规则
 
