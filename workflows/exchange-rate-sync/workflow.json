@@ -1,0 +1,210 @@
+{
+  "name": "SAP 汇率同步 - CFETS → OB08 (PRD)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 30 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "3931c878-f217-461c-b442-138632f399cb",
+      "name": "每天 09:30 北京时间",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        -120
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "e26971f2-dd1f-4d33-a69a-50b7baec5fab",
+      "name": "手动测试",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rateConfig = [\n  { frequency: 'DAILY', rate_type: 'EURX', from_currency: 'EUR' },\n  { frequency: 'DAILY', rate_type: 'M', from_currency: 'EUR' },\n  { frequency: 'DAILY', rate_type: 'M', from_currency: 'USD' },\n  { frequency: 'MONTH_END', rate_type: 'M', from_currency: 'CAD' },\n  { frequency: 'MONTH_END', rate_type: 'M', from_currency: 'HKD' },\n  { frequency: 'MONTH_END', rate_type: 'M', from_currency: 'SGD' },\n  { frequency: 'MONTH_END', rate_type: 'M', from_currency: 'JPY' },\n];\n\nconst input = $input.first()?.json ?? {};\nconst forceMonthEnd = input.force_month_end === true\n  || String(input.force_month_end ?? '').toLowerCase() === 'true';\nconst timeZone = 'Asia/Shanghai';\nconst now = new Date();\nconst dateParts = Object.fromEntries(\n  new Intl.DateTimeFormat('en-CA', {\n    timeZone,\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  })\n    .formatToParts(now)\n    .filter((part) => part.type !== 'literal')\n    .map((part) => [part.type, part.value]),\n);\n\nconst year = Number(dateParts.year);\nconst month = Number(dateParts.month);\nconst day = Number(dateParts.day);\nconst lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();\nconst isMonthEnd = day === lastDay;\nconst dueRates = rateConfig.filter(\n  (row) => row.frequency === 'DAILY' || isMonthEnd || forceMonthEnd,\n);\nconst currencies = [...new Set(dueRates.map((row) => row.from_currency))];\nconst requestedDate = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;\nconst validFrom = `${dateParts.year}${dateParts.month}${dateParts.day}`;\n\nreturn [{\n  json: {\n    requested_date: requestedDate,\n    valid_from: validFrom,\n    timezone: timeZone,\n    is_month_end: isMonthEnd,\n    force_month_end: forceMonthEnd,\n    due_rates: dueRates,\n    currencies,\n  },\n}];"
+      },
+      "id": "1ae4d4de-da5a-4ce9-b08d-028bd55e359c",
+      "name": "生成本次汇率计划",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.142.1.135:8770/rates/resolve",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ requested_date: $json.requested_date, currencies: $json.currencies, lookback_days: 10 }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "6f512817-7037-47be-8ee8-acf13abfe302",
+      "name": "获取 CFETS 汇率",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        -20
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const plan = $('生成本次汇率计划').item.json;\nconst resolved = $json;\n\nif (resolved.status !== 'success' || !Array.isArray(resolved.rates)) {\n  throw new Error(`Exchange-rate service returned invalid status: ${resolved.status}`);\n}\n\nif (!/^\\d{8}$/.test(plan.valid_from)) {\n  throw new Error(`Invalid valid_from date: ${plan.valid_from}`);\n}\n\nconst rateByCurrency = new Map(\n  resolved.rates.map((rate) => [rate.from_currency, rate]),\n);\n\nconst formatRate = (value) => {\n  const number = Number(value);\n  if (!Number.isFinite(number) || number <= 0) {\n    throw new Error(`Invalid exchange rate: ${value}`);\n  }\n  return number.toFixed(8).replace(/0+$/, '').replace(/\\.$/, '');\n};\n\nconst rates = plan.due_rates.map((config) => {\n  const resolvedRate = rateByCurrency.get(config.from_currency);\n  if (!resolvedRate) {\n    throw new Error(`Missing resolved rate for ${config.from_currency}`);\n  }\n\n  return {\n    kurst: config.rate_type,\n    fcurr: config.from_currency,\n    tcurr: 'CNY',\n    gdatu: plan.valid_from,\n    ukurs: formatRate(resolvedRate.rate),\n    ffact: String(resolvedRate.from_factor),\n    tfact: String(resolvedRate.to_factor),\n  };\n});\n\nreturn [{\n  json: {\n    requested_date: plan.requested_date,\n    valid_from: plan.valid_from,\n    sap_gdatu: plan.valid_from,\n    source_date: resolved.source_date,\n    provider: resolved.provider,\n    source_url: resolved.source_url,\n    warnings: resolved.warnings ?? [],\n    sap_request: {\n      operation: 'finance.exchange-rate.set.v1',\n      environment: 'prd',\n      confirm_write: true,\n      rates,\n    },\n  },\n}];"
+      },
+      "id": "d36ced29-60a6-4c36-a8fd-6022073237fb",
+      "name": "构建 SAP 批量请求",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.142.3.84:8000/api/v1/finance/exchange-rate",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.sap_request) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "43c9a87a-d0df-41b8-b12a-e1e26e8c1a66",
+      "name": "写入 SAP PRD 汇率",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        -20
+      ],
+      "notesInFlow": true,
+      "notes": "PRD write API. Do not enable retries because the API has side effects and does not document an idempotency key."
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json;\nconst context = $('构建 SAP 批量请求').item.json;\nconst expectedCount = context.sap_request.rates.length;\n\nif (response.status !== 'S') {\n  throw new Error(`SAP exchange-rate write failed: ${response.message ?? 'unknown error'}`);\n}\n\nif (Number(response.rate_count) !== expectedCount) {\n  throw new Error(`SAP rate_count mismatch: expected ${expectedCount}, received ${response.rate_count}`);\n}\n\nreturn [{\n  json: {\n    status: 'success',\n    environment: response.environment,\n    provider: context.provider,\n    requested_date: context.requested_date,\n    source_date: context.source_date,\n    valid_from: context.valid_from,\n    written_count: Number(response.rate_count),\n    sap_function: response.function,\n    sap_message: response.message,\n    warnings: context.warnings,\n  },\n}];"
+      },
+      "id": "e7f568e0-4001-472f-937a-150e8dfed8a9",
+      "name": "验证 SAP 写入结果",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## CFETS → SAP OB08（PRD）\n\n- 每天北京时间 09:30 运行。\n- 每日：EURX EUR/CNY、M EUR/CNY、M USD/CNY。\n- 月末：增加 M CAD/HKD/SGD/JPY → CNY。\n- 汇率 service：`http://10.142.1.135:8770`。\n- SAP API environment 固定为 PRD。\n- GDATU 传普通 YYYYMMDD，由 NexCore 转为 TCURR 内部日期。\n- SAP 写入节点禁止自动重试。",
+        "height": 300,
+        "width": 440,
+        "color": 5
+      },
+      "id": "7f3810a3-d18e-405c-909c-df44c5be6afd",
+      "name": "运行说明",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        760,
+        -420
+      ]
+    }
+  ],
+  "connections": {
+    "每天 09:30 北京时间": {
+      "main": [
+        [
+          {
+            "node": "生成本次汇率计划",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "手动测试": {
+      "main": [
+        [
+          {
+            "node": "生成本次汇率计划",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "生成本次汇率计划": {
+      "main": [
+        [
+          {
+            "node": "获取 CFETS 汇率",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "获取 CFETS 汇率": {
+      "main": [
+        [
+          {
+            "node": "构建 SAP 批量请求",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "构建 SAP 批量请求": {
+      "main": [
+        [
+          {
+            "node": "写入 SAP PRD 汇率",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "写入 SAP PRD 汇率": {
+      "main": [
+        [
+          {
+            "node": "验证 SAP 写入结果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

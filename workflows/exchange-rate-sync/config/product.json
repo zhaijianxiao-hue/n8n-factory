@@ -1,0 +1,30 @@
+{
+  "name": "exchange-rate-sync",
+  "version": "0.1.0",
+  "description": "CFETS人民币汇率中间价抓取与标准化服务",
+  "status": "active",
+  "trigger": "schedule",
+  "planned_schedule": "0 30 9 * * *",
+  "timezone": "Asia/Shanghai",
+  "input": {
+    "type": "http",
+    "provider": "CFETS",
+    "source": "https://www.chinamoney.com.cn/ags/ms/cm-u-bk-ccpr/CcprHisNew"
+  },
+  "output": {
+    "type": "api",
+    "target": "normalized JSON",
+    "endpoint": "/rates/resolve"
+  },
+  "dependencies": {
+    "python": ">=3.10",
+    "fastapi": ">=0.100.0",
+    "httpx": ">=0.24.0",
+    "pydantic": ">=2.0.0"
+  },
+  "service_port": 8770,
+  "tags": ["exchange-rate", "cfets", "cny", "scheduled", "sap-sync"],
+  "owner": "财务部",
+  "created_at": "2026-07-13",
+  "updated_at": "2026-07-13"
+}
