@@ -25,6 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 SCREENSHOT_TIMEOUT = int(os.getenv("SCREENSHOT_TIMEOUT", "30"))
+SCREENSHOT_MAX_DELAY_MS = int(os.getenv("SCREENSHOT_MAX_DELAY_MS", "300000"))
 SCREENSHOT_MAX_WIDTH = int(os.getenv("SCREENSHOT_MAX_WIDTH", "3840"))
 SCREENSHOT_MAX_HEIGHT = int(os.getenv("SCREENSHOT_MAX_HEIGHT", "2160"))
 API_PORT = int(os.getenv("SCREENSHOT_PORT", "8767"))
@@ -98,7 +99,7 @@ class ScreenshotRequest(BaseModel):
     width: int = Field(default=1280, ge=320, le=SCREENSHOT_MAX_WIDTH, description="浏览器视口宽度")
     height: int = Field(default=720, ge=240, le=SCREENSHOT_MAX_HEIGHT, description="浏览器视口高度")
     full_page: bool = Field(default=False, description="是否截取整页")
-    delay_ms: int = Field(default=1000, ge=0, le=30000, description="页面加载后额外等待毫秒数")
+    delay_ms: int = Field(default=1000, ge=0, le=SCREENSHOT_MAX_DELAY_MS, description="页面加载后额外等待毫秒数")
 
 
 class ScreenshotResponse(BaseModel):
